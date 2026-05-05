@@ -1,7 +1,7 @@
 {
   "name": "siriusbot",
   "version": "1.1.0",
-  "description": "Bot de WhatsApp SiriusBot",
+  "description": "Bot de WhatsApp Brunno Bot",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
