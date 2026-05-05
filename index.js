@@ -13,7 +13,7 @@ const config = require('./config');
 function showBanner() {
   console.clear();
 
-  const botName = config.botName || 'SiriusBot';
+  const botName = config.botName || 'BrunnoBot';
   const lines = figlet.textSync(botName, { font: 'Big' }).split('\n');
 
   lines.forEach(line => console.log(chalk.cyan.bold(line)));
