@@ -8,16 +8,16 @@ module.exports = {
   // 👤 OWNER
   // ─────────────────────────────────────────
   owner: [
-  '51958959882',
-  '42696337031354',
+  '5493884332061',
+  '5491130850938',
   '132482980696170'
 ],
   // ─────────────────────────────────────────
   // 🤖 BOT INFO
   // ─────────────────────────────────────────
-  botName    : process.env.BOT_NAME    || 'SiriusBot',
+  botName    : process.env.BOT_NAME    || 'Brunnobot',
   botVersion : process.env.BOT_VERSION || '1.0.0',
-  footer     : process.env.BOT_FOOTER  || 'SiriusBot',
+  footer     : process.env.BOT_FOOTER  || 'Brunnobot',
 
   // ─────────────────────────────────────────
   // ⚙️ PREFIJO (🔥 AQUÍ CONTROLAS TODO)
