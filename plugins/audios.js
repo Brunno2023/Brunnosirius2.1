@@ -41,6 +41,7 @@ module.exports = {
       { triggers: ['tetas'], file: 'ATetas.mp3' },
       { triggers: ['añanin'], file: 'Añañin.mp3' },
       { triggers: ['chaoo'], file: 'Chaoo.mp3' },
+      { triggers: ['pelear','pelea','manos'], file: 'pelear goku.mp3' },
       { triggers: ['coger'], file: 'Coger.mp3' }, // 🔥 ya no detecta "recoger"
       { triggers: ['viernes'], file: 'viernes.mp3' },
       { triggers: ['siu','siuu','siuuu','siuuuu','siuuuuu','siuuuuuu'], file: 'siu.mp3' },
