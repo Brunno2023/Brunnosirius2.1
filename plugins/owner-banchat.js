@@ -6,17 +6,17 @@ module.exports = {
   commands: ['banchat'],
   description: 'Banea el chat',
 
-  async execute({ sock, remoteJid, msg, isOwner, isAdmin, fromGroup })
+  async execute({ sock, remoteJid, msg, isOwner, isAdmin, fromGroup }) {
 
-    // ⚠️ opcional: restringir a owner
-    const owner = 'TU_NUMERO@s.whatsapp.net';
-    if (sender !== owner) {
+    // 🔐 Permisos: owner o admin del grupo
+    if (!isOwner && (!fromGroup || !isAdmin)) {
       return sock.sendMessage(remoteJid, {
-        text: '❌ Solo el owner puede usar este comando'
+        text: '❌ Solo admins o el owner pueden usar este comando'
       }, { quoted: msg });
     }
 
     // 🧠 asegurar estructura
+    if (!db.data) db.data = {};
     if (!db.data.chats) db.data.chats = {};
     if (!db.data.chats[remoteJid]) {
       db.data.chats[remoteJid] = {};
@@ -25,7 +25,7 @@ module.exports = {
     db.data.chats[remoteJid].isBanned = true;
 
     await sock.sendMessage(remoteJid, {
-      text: '│‼️│THIS CHAT WAS SUCCESSFULLY BANNED🗝'
+      text: '🚫 Este chat fue baneado'
     }, { quoted: msg });
   }
 };
