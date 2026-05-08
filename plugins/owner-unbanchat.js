@@ -1,10 +1,30 @@
-let handler = async (m) => {
-global.db.data.chats[m.chat].isBanned = false
-m.reply('|✔️|ESTE CHAT HA SIDO DESBANEADO CON ÉXITO 🌴')
-}
-handler.help = ['unbanchat']
-handler.tags = ['owner']
-handler.command = /^unbanchat$/i
-handler.rowner = true
-handler.register = true
-export default handler
+'use strict';
+
+const db = require('../lib/database');
+
+module.exports = {
+  commands: ['unbanchat'],
+
+  async execute({ sock, remoteJid, sender, msg }) {
+
+    const owner = '549XXXXXXXXXX@s.whatsapp.net';
+
+    if (sender !== owner) {
+      return sock.sendMessage(remoteJid, {
+        text: '❌ Solo el owner puede usar este comando'
+      }, { quoted: msg });
+    }
+
+    if (!db.data) db.data = {};
+    if (!db.data.chats) db.data.chats = {};
+    if (!db.data.chats[remoteJid]) {
+      db.data.chats[remoteJid] = {};
+    }
+
+    db.data.chats[remoteJid].isBanned = false;
+
+    await sock.sendMessage(remoteJid, {
+      text: '✅ Este chat fue desbaneado correctamente'
+    }, { quoted: msg });
+  }
+};
