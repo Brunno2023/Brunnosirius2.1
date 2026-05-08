@@ -234,6 +234,14 @@ async function messageHandler(sock, msg, store = {}) {
 
     if (!remoteJid) return;
     if (remoteJid === 'status@broadcast') return;
+    // 🚫 Sistema de baneo de chats
+try {
+  if (db.data?.chats?.[remoteJid]?.isBanned) {
+    return;
+  }
+} catch (e) {
+  console.log('Error en sistema de baneo:', e);
+}
 
     const fromMe = !!key.fromMe;
     const fromGroup = remoteJid.endsWith('@g.us');
