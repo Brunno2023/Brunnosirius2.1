@@ -55,7 +55,7 @@ const piropos = [
   '💭 No eres un sueño… pero claramente te soñaron bien 🌙✨',
   '📊 Eres el tipo de casualidad que rompe estadísticas 📉💘',
   '⏳ Si el tiempo se detuviera, lo haría mirándote 👀💓',
-  '✍️ Eres poesía sin necesidad de rimar 📖💖',
+  '💗ojala fuera LEGO para armar una vida a tu lado🥺💗',
   '🌇 Tienes más encanto que un atardecer inesperado 🌅✨',
   '📚 Eres el capítulo favorito que no quiero terminar 💘📖',
   '🧭 Si el destino tuviera rostro, se parecería al tuyo 💫❤️'
