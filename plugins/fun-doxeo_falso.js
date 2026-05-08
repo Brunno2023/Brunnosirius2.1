@@ -34,4 +34,28 @@ routerVendor: getRandomValue(['ERICCSON', 'TPLINK', 'Cisco']),
 deviceVendor: getRandomValue(['WIN32-X', 'Device Co', 'SecureTech']),
 connectionType: getRandomValue(['TPLINK COMPANY', 'ISP Connect', 'Home Network']),
 icmphops: `192.${Math.floor(Math.random() * 256)}.0.1 192.${Math.floor(Math.random() * 256)}.1.1 100.${Math.floor(Math.random() * 256)}.43.4`,
-  
+  };
+
+function getRandomValue(arr) {
+return arr[Math.floor(Math.random() * arr.length)];
+}
+
+m.reply(`
+╭━━〔 FAKE DOXEO 〕━━⬣
+┃ IP: ${fakeData.ip}
+┃ ISP: ${fakeData.isp}
+┃ MAC: ${fakeData.mac}
+┃ DNS: ${fakeData.dns}
+┃ IPv6: ${fakeData.ipv6}
+┃ Router: ${fakeData.routerVendor}
+┃ Gateway: ${fakeData.gateway}
+┃ Puertos TCP: ${fakeData.tcpOpenPorts}
+┃ Puertos UDP: ${fakeData.udpOpenPorts}
+╰━━━━━━━━━━━━⬣
+`);
+
+};
+
+handler.command = ['doxeo'];
+
+module.exports = handler;
