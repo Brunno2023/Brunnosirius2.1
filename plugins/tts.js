@@ -23,7 +23,7 @@ module.exports = {
       );
     }
 
-    // 🔥 Crear carpeta tmp si no existe
+    // Crear carpeta tmp
     const tmpDir = path.join(__dirname, '../tmp');
 
     if (!fs.existsSync(tmpDir)) {
@@ -35,6 +35,79 @@ module.exports = {
     const mp3 = path.join(tmpDir, 'tts.mp3');
     const ogg = path.join(tmpDir, 'tts.ogg');
 
+    try {
+
+      // Crear mp3
+      const tts = new gTTS(text, 'es');
+
+      await new Promise((resolve, reject) => {
+
+        tts.save(mp3, (err) => {
+
+          if (err) {
+            console.log('❌ GTTS ERROR:', err);
+            return reject(err);
+          }
+
+          resolve();
+
+        });
+
+      });
+
+      // Verificar mp3
+      if (!fs.existsSync(mp3)) {
+        throw new Error('No se creó el mp3');
+      }
+
+      // Convertir a opus
+      await new Promise((resolve, reject) => {
+
+        exec(
+          `ffmpeg -i "${mp3}" -c:a libopus -b:a 128k "${ogg}" -y`,
+          (err, stdout, stderr) => {
+
+            if (err) {
+              console.log(stderr);
+              return reject(err);
+            }
+
+            resolve();
+
+          }
+        );
+
+      });
+
+      // Enviar audio
+      await sock.sendMessage(
+        remoteJid,
+        {
+          audio: fs.readFileSync(ogg),
+          mimetype: 'audio/ogg; codecs=opus',
+          ptt: true
+        },
+        { quoted: msg }
+      );
+
+      // Limpiar archivos
+      if (fs.existsSync(mp3)) fs.unlinkSync(mp3);
+      if (fs.existsSync(ogg)) fs.unlinkSync(ogg);
+
+    } catch (e) {
+
+      console.log('❌ ERROR TTS:', e);
+
+      await sock.sendMessage(
+        remoteJid,
+        {
+          text: '❌ Error en TTS'
+        },
+        { quoted: msg }
+      );
+    }
+  }
+};
     try {
 
       // 🔥 Crear MP3
