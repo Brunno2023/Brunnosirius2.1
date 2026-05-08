@@ -5,12 +5,12 @@ const db = require('../lib/database');
 module.exports = {
   commands: ['unbanchat'],
 
-  async execute({ sock, remoteJid, sender, msg }) {
+  async execute({ sock, remoteJid, sender, msg, isOwner }) {
 
     if (!isOwner) {
-  return sock.sendMessage(remoteJid, {
-    text: '❌ Solo el owner puede usar este comando'
-  }, { quoted: msg });
+      return sock.sendMessage(remoteJid, {
+        text: '❌ Solo el owner puede usar este comando'
+      }, { quoted: msg });
     }
 
     if (!db.data) db.data = {};
