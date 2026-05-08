@@ -48,6 +48,7 @@ module.exports = {
       { triggers: ['noche'], file: 'Noche.mp3' },
       { triggers: ['sexo'], file: 'S3x0g.mp3' },
       { triggers: ['linda'], file: 'Linda.mp3' },
+      { triggers: ['importa'], file: 'no me importa.mp3' },
       { triggers: ['piropo'], file: 'piropo.mp3' },
       { triggers: ['buenos'], file: 'buenos.mp3' },
       { triggers: ['homero','mmm','Mmm'], file: 'homero.mp3' },
