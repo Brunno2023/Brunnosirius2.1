@@ -170,15 +170,14 @@ async function messageHandler(sock, msg, store = {}) {
     if (remoteJid === 'status@broadcast') return;
   
 const body = getBody(msg) || '';
+const body = getBody(msg) || '';
 
 // 🚫 Sistema de baneo de chats
 try {
-  const allowedCommands = ['unbanchat'];
+  const parsed = detectPrefix(body, config.prefix);
+  const command = parsed?.body?.trim().split(/\s+/)[0]?.toLowerCase();
 
-  const isAllowed =
-    allowedCommands.some(cmd =>
-      body.toLowerCase().startsWith(config.prefix + cmd)
-    );
+  const isAllowed = ['unbanchat'].includes(command);
 
   if (db.data?.chats?.[remoteJid]?.isBanned && !isAllowed) {
     return;
