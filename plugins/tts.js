@@ -1,13 +1,13 @@
 'use strict';
 
-const gTTS = require('gtts');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
+const https = require('https');
 
 module.exports = {
   commands: ['tts'],
-  description: 'Texto a voz (nota de voz real)',
+  description: 'Texto a voz',
 
   async execute(ctx) {
     const { sock, remoteJid, args, msg } = ctx;
@@ -15,16 +15,13 @@ module.exports = {
     if (!args.length) {
       return sock.sendMessage(
         remoteJid,
-        {
-          text: '❌ Ejemplo:\n.tts Hola mundo'
-        },
+        { text: '❌ Ejemplo:\n.tts Hola mundo' },
         { quoted: msg }
       );
     }
 
-    const text = args.join(' ');
+    const text = encodeURIComponent(args.join(' '));
 
-    // 🔥 Crear carpeta tmp si no existe
     const tmpDir = path.join(__dirname, '../tmp');
 
     if (!fs.existsSync(tmpDir)) {
@@ -35,6 +32,87 @@ module.exports = {
     const ogg = path.join(tmpDir, `tts_${Date.now()}.ogg`);
 
     try {
+
+      // 🔥 Descargar MP3 de Google Translate
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${text}&tl=es&client=tw-ob`;
+
+      await new Promise((resolve, reject) => {
+
+        const file = fs.createWriteStream(mp3);
+
+        https.get(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0'
+          }
+        }, (res) => {
+
+          res.pipe(file);
+
+          file.on('finish', () => {
+            file.close(resolve);
+          });
+
+        }).on('error', (err) => {
+          fs.unlink(mp3, () => {});
+          reject(err);
+        });
+
+      });
+
+      // 🔥 Verificar MP3
+      if (!fs.existsSync(mp3)) {
+        throw new Error('No se creó el MP3');
+      }
+
+      console.log('✅ MP3 generado');
+
+      // 🔥 Convertir a OGG OPUS
+      await new Promise((resolve, reject) => {
+
+        exec(
+          `ffmpeg -i "${mp3}" -vn -c:a libopus -b:a 128k "${ogg}" -y`,
+          (err, stdout, stderr) => {
+
+            if (err) {
+              console.log(stderr);
+              return reject(err);
+            }
+
+            resolve();
+          }
+        );
+
+      });
+
+      console.log('✅ OGG generado');
+
+      // 🔥 Enviar audio
+      await sock.sendMessage(
+        remoteJid,
+        {
+          audio: fs.readFileSync(ogg),
+          mimetype: 'audio/ogg; codecs=opus',
+          ptt: true
+        },
+        { quoted: msg }
+      );
+
+      // 🔥 Borrar temporales
+      if (fs.existsSync(mp3)) fs.unlinkSync(mp3);
+      if (fs.existsSync(ogg)) fs.unlinkSync(ogg);
+
+    } catch (e) {
+
+      console.log('❌ ERROR TTS:', e);
+
+      await sock.sendMessage(
+        remoteJid,
+        { text: '❌ Error generando TTS' },
+        { quoted: msg }
+      );
+    }
+  }
+};    try {
       // 🔥 Crear MP3
       const tts = new gTTS(text, 'es');
 
