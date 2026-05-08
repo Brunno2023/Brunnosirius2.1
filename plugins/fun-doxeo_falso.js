@@ -1,4 +1,4 @@
-import {performance} from 'perf_hooks';
+const { performance } = require('perf_hooks');
 const handler = async (m, {conn, text}) => {
     
 const start = performance.now();    
