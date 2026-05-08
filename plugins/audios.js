@@ -64,6 +64,7 @@ module.exports = {
      { triggers: ['tarea'], file: 'tarea.mp3' },
       { triggers: ['Fanatica','fanatica'], file: 'fanatica.mp3' },
       { triggers: ['me voy'], file: 'Me voy.mp3' },
+      { triggers: ['sexo1'], file: 'goku sexo.mp3' },
       { triggers: ['doxean', 'me doxean'], file: 'Me doxean.mp3' },
       { triggers: ['no es jueves'], file: 'No es jueves.mp3' },
       { triggers: ['machista'], file: 'm4chista.mp3' },
