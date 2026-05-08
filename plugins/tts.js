@@ -9,11 +9,8 @@ module.exports = {
   command: ['tts'],
   description: 'Texto a voz',
 
-  async execute(ctx) {
+  run: async ({ sock, remoteJid, args, msg }) => {
 
-    const { sock, remoteJid, args, msg } = ctx;
-
-    // Verificar texto
     if (!args || !args.length) {
       return sock.sendMessage(
         remoteJid,
@@ -26,7 +23,6 @@ module.exports = {
 
     const text = encodeURIComponent(args.join(' '));
 
-    // Carpeta tmp
     const tmpDir = path.join(__dirname, '../tmp');
 
     if (!fs.existsSync(tmpDir)) {
@@ -35,6 +31,80 @@ module.exports = {
 
     const mp3 = path.join(tmpDir, `tts_${Date.now()}.mp3`);
     const ogg = path.join(tmpDir, `tts_${Date.now()}.ogg`);
+
+    try {
+
+      // Descargar MP3
+      await new Promise((resolve, reject) => {
+
+        const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${text}&tl=es&client=tw-ob`;
+
+        const file = fs.createWriteStream(mp3);
+
+        https.get(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0'
+          }
+        }, (res) => {
+
+          res.pipe(file);
+
+          file.on('finish', () => {
+            file.close();
+            resolve();
+          });
+
+        }).on('error', reject);
+
+      });
+
+      // Convertir a opus
+      await new Promise((resolve, reject) => {
+
+        exec(
+          `ffmpeg -i "${mp3}" -vn -c:a libopus -b:a 128k "${ogg}" -y`,
+          (err, stdout, stderr) => {
+
+            if (err) {
+              console.log(stderr);
+              return reject(err);
+            }
+
+            resolve();
+          }
+        );
+
+      });
+
+      // Enviar audio
+      await sock.sendMessage(
+        remoteJid,
+        {
+          audio: fs.readFileSync(ogg),
+          mimetype: 'audio/ogg; codecs=opus',
+          ptt: true
+        },
+        { quoted: msg }
+      );
+
+      // Limpiar
+      if (fs.existsSync(mp3)) fs.unlinkSync(mp3);
+      if (fs.existsSync(ogg)) fs.unlinkSync(ogg);
+
+    } catch (e) {
+
+      console.log('❌ ERROR TTS:', e);
+
+      await sock.sendMessage(
+        remoteJid,
+        {
+          text: '❌ Error generando TTS'
+        },
+        { quoted: msg }
+      );
+    }
+  }
+};    const ogg = path.join(tmpDir, `tts_${Date.now()}.ogg`);
 
     try {
 
