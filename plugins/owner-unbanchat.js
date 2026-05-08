@@ -14,13 +14,9 @@ module.exports = {
       }, { quoted: msg });
     }
 
-    if (!db.data) db.data = {};
-    if (!db.data.chats) db.data.chats = {};
-    if (!db.data.chats[remoteJid]) {
-      db.data.chats[remoteJid] = {};
-    }
-
-    db.data.chats[remoteJid].isBanned = false;
+    await db.setGroup(remoteJid, {
+  isBanned: false
+});
 
     await sock.sendMessage(remoteJid, {
       text: '✅ Este chat fue desbaneado correctamente'
