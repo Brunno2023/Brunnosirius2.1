@@ -1,12 +1,4 @@
-turn;
-  sock._loggerAttached = true;
-
-  const originalSend = sock.sendMessage.bind(sock);
-
-  sock.sendMessage = async (jid, content = {}, options = {}) => {
-    try {
-      if (config.debug) {
-        let type = 'Desconocido';
+'Desconocido';
         let preview = '';
 
         if (content.text) {
@@ -170,21 +162,6 @@ async function messageHandler(sock, msg, store = {}) {
     if (remoteJid === 'status@broadcast') return;
   
 const body = getBody(msg) || '';
-const body = getBody(msg) || '';
-
-// 🚫 Sistema de baneo de chats
-try {
-  const parsed = detectPrefix(body, config.prefix);
-  const command = parsed?.body?.trim().split(/\s+/)[0]?.toLowerCase();
-
-  const isAllowed = ['unbanchat'].includes(command);
-
-  if (db.data?.chats?.[remoteJid]?.isBanned && !isAllowed) {
-    return;
-  }
-} catch (e) {
-  console.log('Error en sistema de baneo:', e);
-}
 
     const fromMe = !!key.fromMe;
     const fromGroup = remoteJid.endsWith('@g.us');
@@ -286,6 +263,13 @@ const isOwner = ownerNumbers.includes(senderNumber) || fromMe;
 
     const args = parsed.body.trim().split(/\s+/).filter(Boolean);
     const command = args.shift()?.toLowerCase();
+    // 🚫 Sistema de baneo
+if (
+  db.data?.chats?.[remoteJid]?.isBanned &&
+  command !== 'unbanchat'
+) {
+  return;
+}
 
     if (!command) return;
 
