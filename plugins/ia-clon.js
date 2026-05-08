@@ -72,7 +72,7 @@ avgLength
 
 async function generateAI(style, messages, promptUser) {
 
-const apiKey = 'TU_API_KEY_GEMINI'
+const apiKey = 'AIzaSyAF9rla64VZQ4n9a0G8F4PwOQYmrWxYDRw'
 
 const prompt = `
 Imita EXACTAMENTE este estilo humano de WhatsApp.
