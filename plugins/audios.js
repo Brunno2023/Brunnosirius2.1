@@ -39,7 +39,6 @@ module.exports = {
       { triggers: ['hola'], file: 'hola.mp3' },
       { triggers: ['autoestima'], file: 'Autoestima.mp3' },
       { triggers: ['tetas'], file: 'ATetas.mp3' }
-      { triggers: ['machista','Machista'], file: 'm4chista.mp3' },
       { triggers: ['añanin'], file: 'Añañin.mp3' },
       { triggers: ['chaoo'], file: 'Chaoo.mp3' },
       { triggers: ['coger'], file: 'Coger.mp3' }, // 🔥 ya no detecta "recoger"
@@ -62,6 +61,7 @@ module.exports = {
       { triggers: ['me voy'], file: 'Me voy.mp3' },
       { triggers: ['doxean', 'me doxean'], file: 'Me doxean.mp3' },
       { triggers: ['no es jueves'], file: 'No es jueves.mp3' },
+      { triggers: ['machista'], file: 'm4chista.mp3' },
       { triggers: ['jejeje'], file: 'Jejeje.mp3' }
     ];
 
