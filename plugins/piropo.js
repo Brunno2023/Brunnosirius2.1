@@ -18,7 +18,7 @@ const piropos = [
   '🧈 Quisiera ser mantequilla para derretirme en tu arepa 🫓🔥',
   '⚖️ Si la belleza fuera pecado, ya estarías en el infierno 😈🔥',
   '💔 Robar está mal, pero un beso tuyo sí me lo robaría 💋😳',
-  '🌞 Bonita, camina por la sombra que el sol derrite chocolates 🍫☀️',
+  '🔥Quien fuera bombero para agarrate la manguera 🔥😍',
   '🔍 Pareces Google, tienes todo lo que busco 💻💖',
   '☕ Mi café favorito es el de tus ojos 👀✨',
 
