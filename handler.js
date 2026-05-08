@@ -1,23 +1,4 @@
-=> text.includes(word));
-}
-
-console.log = (...args) => {
-  if (shouldHideConsole(args)) return;
-  originalConsoleLog(...args);
-};
-
-console.error = (...args) => {
-  if (shouldHideConsole(args)) return;
-  originalConsoleError(...args);
-};
-
-console.warn = (...args) => {
-  if (shouldHideConsole(args)) return;
-  originalConsoleWarn(...args);
-};
-
-function attachSendLogger(sock) {
-  if (sock._loggerAttached) return;
+turn;
   sock._loggerAttached = true;
 
   const originalSend = sock.sendMessage.bind(sock);
@@ -188,7 +169,7 @@ async function messageHandler(sock, msg, store = {}) {
     if (!remoteJid) return;
     if (remoteJid === 'status@broadcast') return;
   
-
+const body = getBody(msg) || '';
 // 🚫 Sistema de baneo de chats
 try {
   const allowedCommands = ['unbanchat'];
@@ -209,8 +190,7 @@ try {
     let sender = fromGroup ? key.participant : remoteJid;
     sender = normalizeJid(sender || remoteJid);
 
-    const botJid = normalizeJid(sock.user?.id || '');
-    const body = getBody(msg);
+    const botJid = normalizeJid(sock.user?.id || '')
     const displayMsg = getReadableMessage(msg);
 
     const pushName =
@@ -396,3 +376,4 @@ module.exports = {
   plugins,
   messagePlugins
 };
+              
