@@ -34,7 +34,7 @@ const piropos = [
   '🔄 Eres el motivo por el que el corazón se salta actualizaciones 💓📲',
   '🎵 Si fueras canción, te pondría en loop infinito 🔁🎶',
   '🧮 Eres como un algoritmo perfecto: imposible de ignorar 💻💖',
-  '🖼️ No sé si eres real o un render del universo en ultra HD 🌌✨',
+  '💗Vete por la sombrita, que el sol derrite bombones 7w7😍💗',
   '🗺️ Tus ojos deberían venir con mapa porque me pierdo en ellos 👀💫',
   '💬 Eres ese “hola” que nunca quiero que termine 🥺💞',
   '😈 Me gustaría ser agua podrida, para vivir en esa zanja 😈',
