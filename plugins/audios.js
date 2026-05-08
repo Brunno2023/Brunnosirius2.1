@@ -47,6 +47,7 @@ module.exports = {
       { triggers: ['noche'], file: 'Noche.mp3' },
       { triggers: ['sexo'], file: 'S3x0g.mp3' },
       { triggers: ['linda'], file: 'Linda.mp3' },
+      { triggers: ['homero','mmm','Mmm'], file: 'homero.mp3' },
       { triggers: ['plata','Plata','money'], file: 'plata.mp3' },
       { triggers: ['goku','Goku'], file: 'goku.mp3' },
 
