@@ -2,39 +2,112 @@
 
 const fs = require('fs');
 const path = require('path');
-const { exec } = require('child_process');
 const https = require('https');
+const { exec } = require('child_process');
 
 module.exports = {
   commands: ['tts'],
 
   async execute({ sock, remoteJid, args, msg }) {
 
-    if (!args || !args.length) {
-      return sock.sendMessage(
+    try {
+
+      if (!args || !args.length) {
+        return sock.sendMessage(
+          remoteJid,
+          {
+            text: '❌ Ejemplo:\n.tts Hola mundo'
+          },
+          { quoted: msg }
+        );
+      }
+
+      const texto = encodeURIComponent(args.join(' '));
+
+      // Carpeta temporal
+      const tmpDir = path.join(__dirname, '../tmp');
+
+      if (!fs.existsSync(tmpDir)) {
+        fs.mkdirSync(tmpDir, { recursive: true });
+      }
+
+      const id = Date.now();
+
+      const mp3 = path.join(tmpDir, `tts_${id}.mp3`);
+      const ogg = path.join(tmpDir, `tts_${id}.ogg`);
+
+      // Descargar MP3
+      await new Promise((resolve, reject) => {
+
+        const url =
+          `https://translate.google.com/translate_tts?ie=UTF-8&q=${texto}&tl=es&client=tw-ob`;
+
+        const file = fs.createWriteStream(mp3);
+
+        https.get(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0'
+          }
+        }, (res) => {
+
+          res.pipe(file);
+
+          file.on('finish', () => {
+            file.close();
+            resolve();
+          });
+
+        }).on('error', reject);
+
+      });
+
+      // Convertir a OGG
+      await new Promise((resolve, reject) => {
+
+        exec(
+          `ffmpeg -i "${mp3}" -c:a libopus -b:a 128k "${ogg}" -y`,
+          (err, stdout, stderr) => {
+
+            if (err) {
+              console.log(stderr);
+              return reject(err);
+            }
+
+            resolve();
+          }
+        );
+
+      });
+
+      // Enviar audio
+      await sock.sendMessage(
         remoteJid,
         {
-          text: '❌ Ejemplo:\n.tts Hola mundo'
+          audio: fs.readFileSync(ogg),
+          mimetype: 'audio/ogg; codecs=opus',
+          ptt: true
+        },
+        { quoted: msg }
+      );
+
+      // Borrar archivos
+      if (fs.existsSync(mp3)) fs.unlinkSync(mp3);
+      if (fs.existsSync(ogg)) fs.unlinkSync(ogg);
+
+    } catch (e) {
+
+      console.log('❌ ERROR TTS:', e);
+
+      await sock.sendMessage(
+        remoteJid,
+        {
+          text: '❌ Error generando TTS'
         },
         { quoted: msg }
       );
     }
-
-    const text = encodeURIComponent(args.join(' '));
-
-    // Carpeta temporal
-    const tmpDir = path.join(__dirname, '../tmp');
-
-    if (!fs.existsSync(tmpDir)) {
-      fs.mkdirSync(tmpDir, { recursive: true });
-    }
-
-    const id = Date.now();
-
-    const mp3 = path.join(tmpDir, `tts_${id}.mp3`);
-    const ogg = path.join(tmpDir, `tts_${id}.ogg`);
-
-    try {
+  }
+};    try {
 
       // Descargar MP3
       await new Promise((resolve, reject) => {
