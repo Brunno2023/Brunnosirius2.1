@@ -260,16 +260,16 @@ const isOwner = ownerNumbers.includes(senderNumber) || fromMe;
 
     const parsed = detectPrefix(body, config.prefix);
     if (!parsed) return;
-
-    const args = parsed.body.trim().split(/\s+/).filter(Boolean);
-    const command = args.shift()?.toLowerCase();
-    // 🚫 Sistema de baneo
+          // 🚫 Sistema de baneo
 if (
   db.data?.chats?.[remoteJid]?.isBanned &&
   command !== 'unbanchat'
 ) {
   return;
 }
+
+    const args = parsed.body.trim().split(/\s+/).filter(Boolean);
+    const command = args.shift()?.toLowerCase();
 
     if (!command) return;
 
