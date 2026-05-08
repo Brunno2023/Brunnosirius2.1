@@ -44,7 +44,7 @@ const piropos = [
   '💫 No eres casualidad, eres destino con buena estética 🎨💘',
   '☀️ Eres como el sol… pero sin modo oscuro posible 😎🔥',
   '🏅 Si mirarte fuera deporte, ya tendría medalla de oro 🥇👀',
-  '🧬 Eres el glitch más bonito del sistema 💻💖',
+  '🔥 para que stalkearnos, si podemos starkuleando🔥',
   '⚗️ Si el amor fuera ciencia, tú serías la fórmula prohibida 💘🧪',
   '🌧️ Eres como un lunes bonito… imposible pero real 📅💫',
   '🔕 Contigo hasta el silencio suena bien 🤍🎧',
