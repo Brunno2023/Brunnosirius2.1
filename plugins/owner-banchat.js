@@ -6,8 +6,7 @@ module.exports = {
   commands: ['banchat'],
   description: 'Banea el chat',
 
-  async execute(ctx) {
-    const { sock, remoteJid, sender, msg } = ctx;
+  async execute({ sock, remoteJid, msg, isOwner, isAdmin, fromGroup })
 
     // ⚠️ opcional: restringir a owner
     const owner = 'TU_NUMERO@s.whatsapp.net';
