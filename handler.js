@@ -151,6 +151,7 @@ async function safeGroupMetadata(sock, jid) {
 
 async function messageHandler(sock, msg, store = {}) {
   try {
+          console.log('📩 HANDLER RECIBIÓ MENSAJE');
     attachSendLogger(sock);
 
     if (!msg?.message) return;
