@@ -37,7 +37,7 @@ const piropos = [
   '🖼️ No sé si eres real o un render del universo en ultra HD 🌌✨',
   '🗺️ Tus ojos deberían venir con mapa porque me pierdo en ellos 👀💫',
   '💬 Eres ese “hola” que nunca quiero que termine 🥺💞',
-  '📱 Si fueras app, nunca la desinstalaría 💖📲',
+  '😈 Me gustaría ser agua podrida, para vivir en esa zanja 😈',
 
   '❌ Eres el error 404 que sí quiero encontrar 💻❤️',
   '🌞 El universo hizo zoom cuando te creó 🌌✨',
