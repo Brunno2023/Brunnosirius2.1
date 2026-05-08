@@ -16,13 +16,9 @@ module.exports = {
     }
 
     // 🧠 asegurar estructura
-    if (!db.data) db.data = {};
-    if (!db.data.chats) db.data.chats = {};
-    if (!db.data.chats[remoteJid]) {
-      db.data.chats[remoteJid] = {};
-    }
-
-    db.data.chats[remoteJid].isBanned = true;
+    await db.setGroup(remoteJid, {
+  isBanned: true
+});
 
     await sock.sendMessage(remoteJid, {
       text: '🚫 Este chat fue baneado'
