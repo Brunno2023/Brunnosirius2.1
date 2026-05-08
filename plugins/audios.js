@@ -67,6 +67,7 @@ module.exports = {
       { triggers: ['sexo1'], file: 'goku sexo.mp3' },
       { triggers: ['Gordo','gordo], file: 'gordo.mp3' },
       { triggers: ['broma'], file: 'broma.mp3' },
+      { triggers: ['porro','droga','toalla'], file: 'porro.mp3' },
       { triggers: ['palo','pegar','pegas'], file: 'palo.mp3' },
       { triggers: ['Inutil','Tonto','boludo','imbecil'], file: 'inutil.mp3' },
       { triggers: ['doxean', 'me doxean'], file: 'Me doxean.mp3' },
