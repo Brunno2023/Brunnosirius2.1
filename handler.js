@@ -1,51 +1,4 @@
-'use strict';
-
-const path = require('path');
-const fs = require('fs');
-const chalk = require('chalk');
-
-const config = require('./config');
-const db = require('./lib/database');
-
-const {
-  getBody,
-  normalizeJid,
-  detectPrefix,
-  getGroupAdmins
-} = require('./lib/utils');
-
-const originalConsoleLog = console.log;
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
-
-function shouldHideConsole(args = []) {
-  const text = args.map(v => {
-    try {
-      if (typeof v === 'object') return JSON.stringify(v);
-      return String(v);
-    } catch {
-      return String(v);
-    }
-  }).join(' ');
-
-  const blocked = [
-    'Closing session',
-    'Closing stale open session',
-    'SessionEntry',
-    '_chains',
-    'Removing old closed session',
-    'chainKey',
-    'ephemeralKeyPair',
-    'rootKey',
-    'indexInfo',
-    'registrationId',
-    'currentRatchet',
-    'pendingPreKey',
-    'messageKeys',
-    'remoteIdentityKey'
-  ];
-
-  return blocked.some(word => text.includes(word));
+=> text.includes(word));
 }
 
 console.log = (...args) => {
@@ -282,20 +235,13 @@ try {
     }
 
     const ownerNumbers = Array.isArray(config.owner)
-      ? config.owner.map(n => String(n).replace(/\D/g, ''))
-      : [];
+  ? config.owner.map(n => String(n).replace(/\D/g, ''))
+  : [];
 
-    const senderNumber = cleanNumber(sender);
-    const remoteNumber = cleanNumber(remoteJid);
-    const participantNumber = cleanNumber(key.participant || '');
-    const realNumber = cleanNumber(msg.realNumber || '');
+const senderNumber = cleanNumber(sender);
 
-    const isOwner =
-      fromMe ||
-      ownerNumbers.includes(senderNumber) ||
-      ownerNumbers.includes(remoteNumber) ||
-      ownerNumbers.includes(participantNumber) ||
-      ownerNumbers.includes(realNumber);
+// 👑 Owner + el bot mismo
+const isOwner = ownerNumbers.includes(senderNumber) || fromMe;
 
     if (config.debug) {
       console.log(chalk.gray('\n╔══════════════════════════════'));
