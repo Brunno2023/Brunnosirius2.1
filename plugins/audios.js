@@ -38,7 +38,8 @@ module.exports = {
     const audios = [
       { triggers: ['hola'], file: 'hola.mp3' },
       { triggers: ['autoestima'], file: 'Autoestima.mp3' },
-      { triggers: ['tetas'], file: 'ATetas.mp3' },
+      { triggers: ['tetas'], file: 'ATetas.mp3' }
+      { triggers: ['machista','Machista'], file: 'm4chista.mp3' },
       { triggers: ['añanin'], file: 'Añañin.mp3' },
       { triggers: ['chaoo'], file: 'Chaoo.mp3' },
       { triggers: ['coger'], file: 'Coger.mp3' }, // 🔥 ya no detecta "recoger"
