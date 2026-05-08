@@ -267,7 +267,7 @@ const isOwner = ownerNumbers.includes(senderNumber) || fromMe;
     if (!command) return;
           // 🚫 Sistema de baneo
 if (
-  db.data?.chats?.[remoteJid]?.isBanned &&
+  (await db.getGroup(remoteJid)).isBanned &&
   command !== 'unbanchat'
 ) {
   return;
