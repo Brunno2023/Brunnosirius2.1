@@ -23,7 +23,7 @@ module.exports = {
 
     const text =
 `╔══════════════════════╗
-        🌌 *${config.botName || 'SiriusBot'}*
+        🌌 *${config.botName || 'BrunnoBot'}*
 ╚══════════════════════╝
 
 👤 Hola *${pushName || 'Usuario'}* ✨
