@@ -7,12 +7,10 @@ module.exports = {
 
   async execute({ sock, remoteJid, sender, msg }) {
 
-    const owner = '549XXXXXXXXXX@s.whatsapp.net';
-
-    if (sender !== owner) {
-      return sock.sendMessage(remoteJid, {
-        text: '❌ Solo el owner puede usar este comando'
-      }, { quoted: msg });
+    if (!isOwner) {
+  return sock.sendMessage(remoteJid, {
+    text: '❌ Solo el owner puede usar este comando'
+  }, { quoted: msg });
     }
 
     if (!db.data) db.data = {};
