@@ -44,6 +44,8 @@ module.exports = {
 ➤ *${p}dar* → Transferir XP
 
 ━━━━━━━━━━━━━━━━━━━
+Menu audios: .menuaudios
+━━━━━━━━━━━━━━━━━━━
 😂 *DIVERSIÓN*
 ━━━━━━━━━━━━━━━━━━━
 ➤ *${p}piropo*
