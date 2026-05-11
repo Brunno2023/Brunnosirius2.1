@@ -51,7 +51,7 @@ module.exports = {
       -gravity center \
       -font DejaVu-Sans-Bold \
       -pointsize ${fontSize} \
-      -fill "gradient:#ff0000-#00ffff" \
+      -fill "#ffffff" \
       -stroke "#000000" \
       -strokewidth 3 \
       -interline-spacing 8 \
