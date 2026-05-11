@@ -21,6 +21,7 @@ module.exports = {
         }, { quoted: msg });
       }
 
+      // 🔥 CARPETA TEMP
       const tempDir = path.join(__dirname, '../temp');
 
       if (!fs.existsSync(tempDir)) {
@@ -43,7 +44,8 @@ module.exports = {
       else if (length <= 20) fontSize = 60;
       else if (length <= 40) fontSize = 50;
       else if (length <= 70) fontSize = 40;
-      else fontSize = 30;
+      else if (length <= 120) fontSize = 32;
+      else fontSize = 26;
 
       // 🔥 DIVIDIR TEXTO LARGO
       function breakText(str, max = 12) {
@@ -60,7 +62,7 @@ module.exports = {
           .replace(/\n/g, ' ')
       );
 
-      // 🔥 COLORES RGB
+      // 🔥 RGB COLORS
       const colors = [
         '#ff0000',
         '#ff8800',
@@ -73,7 +75,7 @@ module.exports = {
 
       const frames = [];
 
-      // 🔥 CREAR FRAMES
+      // 🔥 CREAR FRAMES RGB
       for (let i = 0; i < colors.length; i++) {
 
         const frame = path.join(
@@ -84,50 +86,61 @@ module.exports = {
         frames.push(frame);
 
         const cmd = `
-        magick -size 512x512 xc:none \
+        magick \
+        -size 512x512 \
+        canvas:none \
         -gravity center \
-        -font DejaVu-Sans-Bold \
+        -font Helvetica \
         -pointsize ${fontSize} \
         -fill "${colors[i]}" \
         -stroke black \
         -strokewidth 4 \
-        -interline-spacing 8 \
+        -interline-spacing 10 \
         -annotate +0+0 "${formatted}" \
         "${frame}"
         `;
 
         await new Promise((resolve, reject) => {
 
-          exec(cmd, (err) => {
-            if (err) reject(err);
-            else resolve();
+          exec(cmd, (err, stdout, stderr) => {
+
+            if (err) {
+              console.log('MAGICK ERROR:', stderr);
+              reject(err);
+            } else {
+              resolve();
+            }
+
           });
 
         });
       }
 
-      // 🔥 UNIR FRAMES
+      // 🔥 ENTRADAS FFMPEG
       const inputs = frames
         .map(f => `-i "${f}"`)
         .join(' ');
 
+      // 🔥 CREAR WEBP RGB ANIMADO
       const ffmpegCmd = `
       ffmpeg -y \
       ${inputs} \
-      -filter_complex "concat=n=${frames.length}:v=1:a=0,fps=8,scale=512:512:flags=lanczos" \
+      -filter_complex "concat=n=${frames.length}:v=1:a=0,format=rgba,fps=8,scale=512:512:flags=lanczos" \
       -vcodec libwebp \
-      -loop 0 \
       -lossless 0 \
+      -q:v 70 \
       -compression_level 6 \
-      -q:v 60 \
+      -loop 0 \
+      -preset picture \
+      -an \
       "${webp}"
       `;
 
-      exec(ffmpegCmd, async (err) => {
+      exec(ffmpegCmd, async (err, stdout, stderr) => {
 
         if (err) {
 
-          console.log('FFMPEG ERROR:', err);
+          console.log('FFMPEG ERROR:', stderr);
 
           return sock.sendMessage(remoteJid, {
             text: '❌ Error creando sticker RGB'
@@ -146,9 +159,12 @@ module.exports = {
 
           console.log('SEND ERROR:', e);
 
+          await sock.sendMessage(remoteJid, {
+            text: '❌ Error enviando sticker'
+          }, { quoted: msg });
         }
 
-        // 🔥 BORRAR TEMPORALES
+        // 🔥 LIMPIAR
         [...frames, webp].forEach(file => {
 
           if (fs.existsSync(file)) {
