@@ -40,7 +40,7 @@ module.exports = {
       if (text.length > 30) fontSize = 40;
       if (text.length > 60) fontSize = 30;
 
-      // 🔥 CORTAR TEXTO
+      // 🔥 DIVIDIR TEXTO
       function breakText(str, max = 10) {
 
         let result = '';
@@ -58,15 +58,15 @@ module.exports = {
           .replace(/\n/g, ' ')
       );
 
-      // 🔥 RGB COLORS
+      // 🔥 RGB
       const colors = [
-        '#ff0000',
-        '#ff8800',
-        '#ffff00',
-        '#00ff00',
-        '#00ffff',
-        '#0000ff',
-        '#ff00ff'
+        'red',
+        'orange',
+        'yellow',
+        'lime',
+        'cyan',
+        'blue',
+        'magenta'
       ];
 
       const frames = [];
@@ -83,16 +83,15 @@ module.exports = {
 
         const cmd =
 `magick \
--background none \
+-size 512x512 \
+xc:none \
+-gravity center \
+-font DejaVu-Sans \
+-pointsize ${fontSize} \
 -fill "${colors[i]}" \
 -stroke black \
 -strokewidth 3 \
--font DejaVu-Sans \
--size 460x460 \
--gravity center \
--pointsize ${fontSize} \
-caption:"${formatted}" \
--png:color-type=6 \
+-annotate +0+0 "${formatted}" \
 "${frame}"`;
 
         await new Promise((resolve, reject) => {
@@ -100,7 +99,7 @@ caption:"${formatted}" \
           exec(cmd, (err, stdout, stderr) => {
 
             if (err) {
-              console.log(stderr);
+              console.log('MAGICK:', stderr);
               reject(err);
             } else {
               resolve();
@@ -116,23 +115,22 @@ caption:"${formatted}" \
         .map(f => `-i "${f}"`)
         .join(' ');
 
-      // 🔥 WEBP RGB
+      // 🔥 WEBP
       const ffmpegCmd =
 `ffmpeg -y \
 ${inputs} \
--filter_complex "concat=n=${frames.length}:v=1:a=0,fps=8,format=rgba,scale=512:512" \
+-filter_complex "concat=n=${frames.length}:v=1:a=0,fps=8" \
 -vcodec libwebp \
--lossless 0 \
--q:v 80 \
 -loop 0 \
--an \
+-lossless 0 \
+-q:v 70 \
 "${webp}"`;
 
       exec(ffmpegCmd, async (err, stdout, stderr) => {
 
         if (err) {
 
-          console.log(stderr);
+          console.log('FFMPEG:', stderr);
 
           return sock.sendMessage(
             remoteJid,
@@ -153,11 +151,11 @@ ${inputs} \
 
         } catch (e) {
 
-          console.log(e);
+          console.log('SEND:', e);
 
         }
 
-        // 🔥 LIMPIAR
+        // 🔥 BORRAR
         [...frames, webp].forEach(file => {
 
           if (fs.existsSync(file)) {
@@ -170,7 +168,7 @@ ${inputs} \
 
     } catch (err) {
 
-      console.log(err);
+      console.log('GENERAL:', err);
 
       await sock.sendMessage(
         remoteJid,
