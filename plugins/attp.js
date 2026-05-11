@@ -47,36 +47,28 @@ module.exports = {
       if (text.length > 60) fontSize = 30;
 
       // 🔥 ESCAPAR TEXTO
-      const safeText = text
-        .replace(/:/g, '\\:')
-        .replace(/'/g, "\\\\'")
-        .replace(/"/g, '\\"')
-        .replace(/\n/g, ' ');
-
-      // 🔥 RGB ANIMADO REAL
-      const ffmpegCmd = `
-      ffmpeg -y \
-      -f lavfi -i color=color=black@0.0:s=512x512:d=4 \
-      -vf "
-      drawtext=
-      text='${safeText}':
-      fontcolor_expr=ff0000+random(1)*ffffff:
-      fontsize=${fontSize}:
-      x=(w-text_w)/2:
-      y=(h-text_h)/2:
-      borderw=4:
-      bordercolor=black:
-      fontfile=/system/fonts/Roboto-Bold.ttf
-      " \
-      -vcodec libwebp \
-      -lossless 0 \
-      -q:v 70 \
-      -compression_level 6 \
-      -loop 0 \
-      -preset picture \
-      -an \
-      "${webp}"
-      `;
+     const ffmpegCmd = `
+ffmpeg -y \
+-f lavfi -i color=c=black@0.0:s=512x512:d=4:r=15 \
+-vf "
+format=rgba,
+drawtext=
+text='${safeText}':
+fontfile=/system/fonts/Roboto-Bold.ttf:
+fontsize=${fontSize}:
+fontcolor_expr=ff0000+random(1)*ffffff:
+x=(w-text_w)/2:
+y=(h-text_h)/2:
+borderw=4:
+bordercolor=black
+" \
+-vcodec libwebp \
+-lossless 1 \
+-pix_fmt yuva420p \
+-loop 0 \
+-an \
+"${webp}"
+`;
 
       exec(ffmpegCmd, async (err, stdout, stderr) => {
 
