@@ -15,56 +15,75 @@ module.exports = {
 
       if (!text) {
         return sock.sendMessage(remoteJid, {
-          text: '❌ Ejemplo: .tts hola mundo'
+          text: '❌ Ejemplo: .attp Hola mundo'
         }, { quoted: msg });
       }
 
       const tempDir = path.join(__dirname, '../temp');
-      if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+      }
 
-      const img = path.join(tempDir, 'text.png');
-      const webp = path.join(tempDir, 'sticker.webp');
+      const img = path.join(tempDir, `text_${Date.now()}.png`);
+      const webp = path.join(tempDir, `sticker_${Date.now()}.webp`);
 
-      // 🔥 CALCULAR TAMAÑO AUTOMÁTICO
+      // 🔥 AUTO AJUSTE DE TAMAÑO
       const length = text.length;
 
       let fontSize;
 
-      if (length <= 10) fontSize = 110;
-      else if (length <= 20) fontSize = 90;
-      else if (length <= 40) fontSize = 70;
-      else if (length <= 80) fontSize = 50;
-      else fontSize = 35;
+      if (length <= 10) fontSize = 95;
+      else if (length <= 20) fontSize = 75;
+      else if (length <= 40) fontSize = 58;
+      else if (length <= 70) fontSize = 45;
+      else if (length <= 120) fontSize = 35;
+      else fontSize = 28;
 
-      // 🔥 CREAR IMAGEN CON AUTO-AJUSTE
+      // 🔥 ESCAPAR TEXTO
+      const safeText = text
+        .replace(/"/g, '\\"')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, ' ');
+
+      // 🔥 CREAR TEXTO RGB CENTRADO Y AJUSTADO
       const createImg = `
       magick -size 512x512 xc:none \
       -gravity center \
-      -fill white \
-      -stroke black \
-      -strokewidth 3 \
       -font DejaVu-Sans-Bold \
       -pointsize ${fontSize} \
-      -interline-spacing 4 \
-      -annotate +0+0 "${text.replace(/"/g, '\\"')}" \
+      -fill "gradient:#ff0000-#00ffff" \
+      -stroke "#000000" \
+      -strokewidth 3 \
+      -interline-spacing 8 \
+      -kerning 1 \
+      -background none \
+      -size 440x440 \
+      caption:"${safeText}" \
+      -gravity center \
+      -compose over \
+      -composite \
       "${img}"
       `;
 
-      // 🔥 CONVERTIR A STICKER
+      // 🔥 CONVERTIR A WEBP ANIMADO RGB
       const toSticker = `
-      ffmpeg -y -i "${img}" \
+      ffmpeg -y -loop 1 -i "${img}" \
+      -vf "fps=15,scale=512:512:flags=lanczos,hue='H=2*PI*t:s=2'" \
+      -t 4 \
       -vcodec libwebp \
-      -vf "scale=512:512:flags=lanczos,format=rgba" \
-      -q:v 90 \
+      -lossless 0 \
       -compression_level 6 \
-      -preset picture \
+      -q:v 70 \
       -loop 0 \
+      -preset picture \
+      -an \
       "${webp}"
       `;
 
       exec(createImg, (err1) => {
         if (err1) {
           console.log('IMG ERROR:', err1);
+
           return sock.sendMessage(remoteJid, {
             text: '❌ Error creando imagen'
           }, { quoted: msg });
@@ -73,6 +92,7 @@ module.exports = {
         exec(toSticker, async (err2) => {
           if (err2) {
             console.log('WEBP ERROR:', err2);
+
             return sock.sendMessage(remoteJid, {
               text: '❌ Error creando sticker'
             }, { quoted: msg });
@@ -89,8 +109,11 @@ module.exports = {
             console.log('SEND ERROR:', e);
           }
 
-          [img, webp].forEach(f => {
-            if (fs.existsSync(f)) fs.unlinkSync(f);
+          // 🔥 BORRAR TEMPORALES
+          [img, webp].forEach(file => {
+            if (fs.existsSync(file)) {
+              fs.unlinkSync(file);
+            }
           });
         });
       });
