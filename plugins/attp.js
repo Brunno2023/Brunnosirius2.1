@@ -18,11 +18,14 @@ module.exports = {
       if (!text) {
         return sock.sendMessage(
           remoteJid,
-          { text: '❌ Usa: .attp Hola Mundo' },
+          {
+            text: '❌ Usa: .attp Hola Mundo'
+          },
           { quoted: msg }
         );
       }
 
+      // 🔥 TEMP
       const tempDir = path.join(__dirname, '../temp');
 
       if (!fs.existsSync(tempDir)) {
@@ -31,7 +34,10 @@ module.exports = {
 
       const id = Date.now();
 
-      const webp = path.join(tempDir, `${id}.webp`);
+      const webp = path.join(
+        tempDir,
+        `rgb_${id}.webp`
+      );
 
       // 🔥 AUTO SIZE
       let fontSize = 60;
@@ -40,101 +46,49 @@ module.exports = {
       if (text.length > 30) fontSize = 40;
       if (text.length > 60) fontSize = 30;
 
-      // 🔥 DIVIDIR TEXTO
-      function breakText(str, max = 10) {
+      // 🔥 ESCAPAR TEXTO
+      const safeText = text
+        .replace(/:/g, '\\:')
+        .replace(/'/g, "\\\\'")
+        .replace(/"/g, '\\"')
+        .replace(/\n/g, ' ');
 
-        let result = '';
-
-        for (let i = 0; i < str.length; i += max) {
-          result += str.substring(i, i + max) + '\n';
-        }
-
-        return result;
-      }
-
-      const formatted = breakText(
-        text
-          .replace(/"/g, '\\"')
-          .replace(/\n/g, ' ')
-      );
-
-      // 🔥 RGB
-      const colors = [
-        'red',
-        'orange',
-        'yellow',
-        'lime',
-        'cyan',
-        'blue',
-        'magenta'
-      ];
-
-      const frames = [];
-
-      // 🔥 CREAR FRAMES
-      for (let i = 0; i < colors.length; i++) {
-
-        const frame = path.join(
-          tempDir,
-          `frame_${id}_${i}.png`
-        );
-
-        frames.push(frame);
-
-        const cmd =
-`magick \
--size 512x512 \
-xc:none \
--gravity center \
--font DejaVu-Sans \
--pointsize ${fontSize} \
--fill "${colors[i]}" \
--stroke black \
--strokewidth 3 \
--annotate +0+0 "${formatted}" \
-"${frame}"`;
-
-        await new Promise((resolve, reject) => {
-
-          exec(cmd, (err, stdout, stderr) => {
-
-            if (err) {
-              console.log('MAGICK:', stderr);
-              reject(err);
-            } else {
-              resolve();
-            }
-
-          });
-
-        });
-      }
-
-      // 🔥 INPUTS
-      const inputs = frames
-        .map(f => `-i "${f}"`)
-        .join(' ');
-
-      // 🔥 WEBP
-      const ffmpegCmd =
-`ffmpeg -y \
-${inputs} \
--filter_complex "concat=n=${frames.length}:v=1:a=0,fps=8" \
--vcodec libwebp \
--loop 0 \
--lossless 0 \
--q:v 70 \
-"${webp}"`;
+      // 🔥 RGB ANIMADO REAL
+      const ffmpegCmd = `
+      ffmpeg -y \
+      -f lavfi -i color=color=black@0.0:s=512x512:d=4 \
+      -vf "
+      drawtext=
+      text='${safeText}':
+      fontcolor_expr=ff0000+random(1)*ffffff:
+      fontsize=${fontSize}:
+      x=(w-text_w)/2:
+      y=(h-text_h)/2:
+      borderw=4:
+      bordercolor=black:
+      fontfile=/system/fonts/Roboto-Bold.ttf
+      " \
+      -vcodec libwebp \
+      -lossless 0 \
+      -q:v 70 \
+      -compression_level 6 \
+      -loop 0 \
+      -preset picture \
+      -an \
+      "${webp}"
+      `;
 
       exec(ffmpegCmd, async (err, stdout, stderr) => {
 
         if (err) {
 
-          console.log('FFMPEG:', stderr);
+          console.log(stderr);
 
           return sock.sendMessage(
             remoteJid,
-            { text: '❌ Error creando sticker' },
+            {
+              text: '❌ Error creando sticker'
+            },
             { quoted: msg }
           );
         }
@@ -151,28 +105,33 @@ ${inputs} \
 
         } catch (e) {
 
-          console.log('SEND:', e);
+          console.log(e);
 
+          return sock.sendMessage(
+            remoteJid,
+            {
+              text: '❌ Error enviando sticker'
+            },
+            { quoted: msg }
+          );
         }
 
-        // 🔥 BORRAR
-        [...frames, webp].forEach(file => {
-
-          if (fs.existsSync(file)) {
-            fs.unlinkSync(file);
-          }
-
-        });
+        // 🔥 LIMPIAR
+        if (fs.existsSync(webp)) {
+          fs.unlinkSync(webp);
+        }
 
       });
 
     } catch (err) {
 
-      console.log('GENERAL:', err);
+      console.log(err);
 
       await sock.sendMessage(
         remoteJid,
-        { text: '❌ Error general' },
+        {
+          text: '❌ Error general'
+        },
         { quoted: msg }
       );
     }
