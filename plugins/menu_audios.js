@@ -1,9 +1,12 @@
-case 'menuaudios':
-case 'audiomenu':
-case 'menud':
-case 'menuaudio': {
+'use strict';
 
-const texto = `
+module.exports = {
+  commands: ['menuaudios'],
+
+  async execute(ctx) {
+    const { sock, remoteJid, msg } = ctx;
+
+    const texto = `
 ╭━━〔 🎵 MENU AUDIOS 🎵 〕━━⬣
 
 ➤ hola
@@ -54,9 +57,8 @@ const texto = `
 ╰━━━━━━━━━━━━━━⬣
 `;
 
-await sock.sendMessage(remoteJid, {
-  text: texto
-}, { quoted: msg });
-
-}
-break;
+    await sock.sendMessage(remoteJid, {
+      text: texto
+    }, { quoted: msg });
+  }
+};
