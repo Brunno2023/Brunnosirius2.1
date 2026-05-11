@@ -18,14 +18,11 @@ module.exports = {
       if (!text) {
         return sock.sendMessage(
           remoteJid,
-          {
-            text: '❌ Usa: .attp Hola Mundo'
-          },
+          { text: '❌ Usa: .attp Hola Mundo' },
           { quoted: msg }
         );
       }
 
-      // 🔥 CARPETA TEMP
       const tempDir = path.join(__dirname, '../temp');
 
       if (!fs.existsSync(tempDir)) {
@@ -34,19 +31,16 @@ module.exports = {
 
       const id = Date.now();
 
-      const webp = path.join(
-        tempDir,
-        `rgb_${id}.webp`
-      );
+      const webp = path.join(tempDir, `${id}.webp`);
 
-      // 🔥 AUTO FONT SIZE
+      // 🔥 AUTO SIZE
       let fontSize = 60;
 
       if (text.length > 15) fontSize = 50;
       if (text.length > 30) fontSize = 40;
       if (text.length > 60) fontSize = 30;
 
-      // 🔥 PARTIR TEXTO
+      // 🔥 CORTAR TEXTO
       function breakText(str, max = 10) {
 
         let result = '';
@@ -66,13 +60,13 @@ module.exports = {
 
       // 🔥 RGB COLORS
       const colors = [
-        'red',
-        'orange',
-        'yellow',
-        'lime',
-        'cyan',
-        'blue',
-        'magenta'
+        '#ff0000',
+        '#ff8800',
+        '#ffff00',
+        '#00ff00',
+        '#00ffff',
+        '#0000ff',
+        '#ff00ff'
       ];
 
       const frames = [];
@@ -88,14 +82,17 @@ module.exports = {
         frames.push(frame);
 
         const cmd =
-`magick -size 512x512 xc:none \
--gravity center \
+`magick \
+-background none \
 -fill "${colors[i]}" \
 -stroke black \
 -strokewidth 3 \
 -font DejaVu-Sans \
+-size 460x460 \
+-gravity center \
 -pointsize ${fontSize} \
--annotate +0+0 "${formatted}" \
+caption:"${formatted}" \
+-png:color-type=6 \
 "${frame}"`;
 
         await new Promise((resolve, reject) => {
@@ -103,7 +100,7 @@ module.exports = {
           exec(cmd, (err, stdout, stderr) => {
 
             if (err) {
-              console.log('MAGICK:', stderr);
+              console.log(stderr);
               reject(err);
             } else {
               resolve();
@@ -119,28 +116,27 @@ module.exports = {
         .map(f => `-i "${f}"`)
         .join(' ');
 
-      // 🔥 CREAR WEBP
+      // 🔥 WEBP RGB
       const ffmpegCmd =
 `ffmpeg -y \
 ${inputs} \
--filter_complex "concat=n=${frames.length}:v=1:a=0,fps=8,format=rgba" \
+-filter_complex "concat=n=${frames.length}:v=1:a=0,fps=8,format=rgba,scale=512:512" \
 -vcodec libwebp \
--loop 0 \
 -lossless 0 \
 -q:v 80 \
+-loop 0 \
+-an \
 "${webp}"`;
 
       exec(ffmpegCmd, async (err, stdout, stderr) => {
 
         if (err) {
 
-          console.log('FFMPEG:', stderr);
+          console.log(stderr);
 
           return sock.sendMessage(
             remoteJid,
-            {
-              text: '❌ Error creando sticker'
-            },
+            { text: '❌ Error creando sticker' },
             { quoted: msg }
           );
         }
@@ -157,11 +153,11 @@ ${inputs} \
 
         } catch (e) {
 
-          console.log('SEND:', e);
+          console.log(e);
 
         }
 
-        // 🔥 BORRAR TEMP
+        // 🔥 LIMPIAR
         [...frames, webp].forEach(file => {
 
           if (fs.existsSync(file)) {
@@ -174,13 +170,11 @@ ${inputs} \
 
     } catch (err) {
 
-      console.log('GENERAL:', err);
+      console.log(err);
 
       await sock.sendMessage(
         remoteJid,
-        {
-          text: '❌ Error general'
-        },
+        { text: '❌ Error general' },
         { quoted: msg }
       );
     }
