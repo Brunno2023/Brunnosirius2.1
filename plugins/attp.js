@@ -49,7 +49,7 @@ module.exports = {
       // 🔥 ESCAPAR TEXTO
      const ffmpegCmd = `
 ffmpeg -y \
--f lavfi -i color=c=black@0.0:s=512x512:d=4:r=15 \
+-f lavfi -i color=c=white@0.0:s=512x512:d=4:r=15 \
 -vf "
 format=rgba,
 drawtext=
