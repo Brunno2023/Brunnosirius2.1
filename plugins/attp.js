@@ -17,65 +17,58 @@ module.exports = {
 
       if (!text) {
         return sock.sendMessage(remoteJid, {
-          text: '❌ Ejemplo: .attp Hola Mundo'
+          text: '❌ Usa: .attp Hola'
         }, { quoted: msg });
       }
 
-      // 🔥 CARPETA TEMP
+      // 🔥 TEMP
       const tempDir = path.join(__dirname, '../temp');
 
-      if (!fs.existsSync(tempDir)) {
+      if (!fs.existsSync(tempDir')) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
 
       const id = Date.now();
 
-      const webp = path.join(
-        tempDir,
-        `rgb_${id}.webp`
-      );
+      const webp = path.join(tempDir, `${id}.webp`);
 
-      // 🔥 AUTO FONT SIZE
-      const length = text.length;
+      // 🔥 TAMAÑO AUTOMÁTICO
+      let fontSize = 60;
 
-      let fontSize;
+      if (text.length > 15) fontSize = 50;
+      if (text.length > 30) fontSize = 40;
+      if (text.length > 60) fontSize = 30;
 
-      if (length <= 10) fontSize = 70;
-      else if (length <= 20) fontSize = 60;
-      else if (length <= 40) fontSize = 50;
-      else if (length <= 70) fontSize = 40;
-      else if (length <= 120) fontSize = 32;
-      else fontSize = 26;
+      // 🔥 CORTAR TEXTO
+      function breakText(str, max = 10) {
 
-      // 🔥 DIVIDIR TEXTO LARGO
-      function breakText(str, max = 12) {
-        return str.replace(
-          new RegExp(`(.{${max}})`, 'g'),
-          '$1\n'
-        );
+        let result = '';
+
+        for (let i = 0; i < str.length; i += max) {
+          result += str.substring(i, i + max) + '\n';
+        }
+
+        return result;
       }
 
       const formatted = breakText(
-        text
-          .replace(/"/g, '\\"')
-          .replace(/'/g, "\\'")
-          .replace(/\n/g, ' ')
+        text.replace(/"/g, '\\"')
       );
 
       // 🔥 RGB COLORS
       const colors = [
-        '#ff0000',
-        '#ff8800',
-        '#ffff00',
-        '#00ff00',
-        '#00ffff',
-        '#0000ff',
-        '#ff00ff'
+        'red',
+        'orange',
+        'yellow',
+        'lime',
+        'cyan',
+        'blue',
+        'magenta'
       ];
 
       const frames = [];
 
-      // 🔥 CREAR FRAMES RGB
+      // 🔥 CREAR FRAMES
       for (let i = 0; i < colors.length; i++) {
 
         const frame = path.join(
@@ -85,27 +78,23 @@ module.exports = {
 
         frames.push(frame);
 
-        const cmd = `
-        magick \
-        -size 512x512 \
-        canvas:none \
-        -gravity center \
-        -font Helvetica \
-        -pointsize ${fontSize} \
-        -fill "${colors[i]}" \
-        -stroke black \
-        -strokewidth 4 \
-        -interline-spacing 10 \
-        -annotate +0+0 "${formatted}" \
-        "${frame}"
-        `;
+        const cmd =
+`magick -size 512x512 xc:none \
+-gravity center \
+-fill "${colors[i]}" \
+-stroke black \
+-strokewidth 3 \
+-font DejaVu-Sans \
+-pointsize ${fontSize} \
+-annotate +0+0 "${formatted}" \
+"${frame}"`;
 
         await new Promise((resolve, reject) => {
 
           exec(cmd, (err, stdout, stderr) => {
 
             if (err) {
-              console.log('MAGICK ERROR:', stderr);
+              console.log(stderr);
               reject(err);
             } else {
               resolve();
@@ -116,34 +105,30 @@ module.exports = {
         });
       }
 
-      // 🔥 ENTRADAS FFMPEG
+      // 🔥 INPUTS
       const inputs = frames
         .map(f => `-i "${f}"`)
         .join(' ');
 
-      // 🔥 CREAR WEBP RGB ANIMADO
-      const ffmpegCmd = `
-      ffmpeg -y \
-      ${inputs} \
-      -filter_complex "concat=n=${frames.length}:v=1:a=0,format=rgba,fps=8,scale=512:512:flags=lanczos" \
-      -vcodec libwebp \
-      -lossless 0 \
-      -q:v 70 \
-      -compression_level 6 \
-      -loop 0 \
-      -preset picture \
-      -an \
-      "${webp}"
-      `;
+      // 🔥 WEBP
+      const ffmpegCmd =
+`ffmpeg -y \
+${inputs} \
+-filter_complex "concat=n=${frames.length}:v=1:a=0,fps=8,format=rgba" \
+-vcodec libwebp \
+-loop 0 \
+-lossless 0 \
+-q:v 80 \
+"${webp}"`;
 
       exec(ffmpegCmd, async (err, stdout, stderr) => {
 
         if (err) {
 
-          console.log('FFMPEG ERROR:', stderr);
+          console.log(stderr);
 
           return sock.sendMessage(remoteJid, {
-            text: '❌ Error creando sticker RGB'
+            text: '❌ Error creando sticker'
           }, { quoted: msg });
         }
 
@@ -157,11 +142,8 @@ module.exports = {
 
         } catch (e) {
 
-          console.log('SEND ERROR:', e);
+          console.log(e);
 
-          await sock.sendMessage(remoteJid, {
-            text: '❌ Error enviando sticker'
-          }, { quoted: msg });
         }
 
         // 🔥 LIMPIAR
@@ -177,12 +159,11 @@ module.exports = {
 
     } catch (err) {
 
-      console.log('ERROR GENERAL:', err);
+      console.log(err);
 
       await sock.sendMessage(remoteJid, {
         text: '❌ Error general'
       }, { quoted: msg });
-
     }
   }
 };
