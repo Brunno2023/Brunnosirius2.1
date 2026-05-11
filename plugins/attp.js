@@ -16,30 +16,37 @@ module.exports = {
       const text = args.join(' ');
 
       if (!text) {
-        return sock.sendMessage(remoteJid, {
-          text: '❌ Usa: .attp Hola'
-        }, { quoted: msg });
+        return sock.sendMessage(
+          remoteJid,
+          {
+            text: '❌ Usa: .attp Hola Mundo'
+          },
+          { quoted: msg }
+        );
       }
 
-      // 🔥 TEMP
+      // 🔥 CARPETA TEMP
       const tempDir = path.join(__dirname, '../temp');
 
-      if (!fs.existsSync(tempDir')) {
+      if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
       }
 
       const id = Date.now();
 
-      const webp = path.join(tempDir, `${id}.webp`);
+      const webp = path.join(
+        tempDir,
+        `rgb_${id}.webp`
+      );
 
-      // 🔥 TAMAÑO AUTOMÁTICO
+      // 🔥 AUTO FONT SIZE
       let fontSize = 60;
 
       if (text.length > 15) fontSize = 50;
       if (text.length > 30) fontSize = 40;
       if (text.length > 60) fontSize = 30;
 
-      // 🔥 CORTAR TEXTO
+      // 🔥 PARTIR TEXTO
       function breakText(str, max = 10) {
 
         let result = '';
@@ -52,7 +59,9 @@ module.exports = {
       }
 
       const formatted = breakText(
-        text.replace(/"/g, '\\"')
+        text
+          .replace(/"/g, '\\"')
+          .replace(/\n/g, ' ')
       );
 
       // 🔥 RGB COLORS
@@ -94,7 +103,7 @@ module.exports = {
           exec(cmd, (err, stdout, stderr) => {
 
             if (err) {
-              console.log(stderr);
+              console.log('MAGICK:', stderr);
               reject(err);
             } else {
               resolve();
@@ -110,7 +119,7 @@ module.exports = {
         .map(f => `-i "${f}"`)
         .join(' ');
 
-      // 🔥 WEBP
+      // 🔥 CREAR WEBP
       const ffmpegCmd =
 `ffmpeg -y \
 ${inputs} \
@@ -125,28 +134,34 @@ ${inputs} \
 
         if (err) {
 
-          console.log(stderr);
+          console.log('FFMPEG:', stderr);
 
-          return sock.sendMessage(remoteJid, {
-            text: '❌ Error creando sticker'
-          }, { quoted: msg });
+          return sock.sendMessage(
+            remoteJid,
+            {
+              text: '❌ Error creando sticker'
+            },
+            { quoted: msg }
+          );
         }
 
         try {
 
           const sticker = fs.readFileSync(webp);
 
-          await sock.sendMessage(remoteJid, {
-            sticker
-          }, { quoted: msg });
+          await sock.sendMessage(
+            remoteJid,
+            { sticker },
+            { quoted: msg }
+          );
 
         } catch (e) {
 
-          console.log(e);
+          console.log('SEND:', e);
 
         }
 
-        // 🔥 LIMPIAR
+        // 🔥 BORRAR TEMP
         [...frames, webp].forEach(file => {
 
           if (fs.existsSync(file)) {
@@ -159,11 +174,15 @@ ${inputs} \
 
     } catch (err) {
 
-      console.log(err);
+      console.log('GENERAL:', err);
 
-      await sock.sendMessage(remoteJid, {
-        text: '❌ Error general'
-      }, { quoted: msg });
+      await sock.sendMessage(
+        remoteJid,
+        {
+          text: '❌ Error general'
+        },
+        { quoted: msg }
+      );
     }
   }
 };
