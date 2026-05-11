@@ -38,7 +38,7 @@ module.exports = {
     const audios = [
       { triggers: ['hola'], file: 'hola.mp3' },
       { triggers: ['autoestima'], file: 'Autoestima.mp3' },
-      { triggers: ['tetas'], file: 'ATetas.mp3' },
+      { triggers: ['tetas','Tetas'], file: 'ATetas.mp3' },
       { triggers: ['añanin'], file: 'Añañin.mp3' },
       { triggers: ['chaoo'], file: 'Chaoo.mp3' },
       { triggers: ['pelear','pelea','manos'], file: 'pelear goku.mp3' },
