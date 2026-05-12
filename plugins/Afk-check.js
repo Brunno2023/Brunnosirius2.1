@@ -18,13 +18,26 @@ module.exports = {
 
       if (!body) return;
 
-      if (!db.data) return;
-      if (!db.data.users) return;
+      if (!db.data) db.data = {};
+      if (!db.data.users) db.data.users = {};
 
-      if (!db.data.users[sender]) return;
+      if (!db.data.users[sender]) {
+        db.data.users[sender] = {
+          afk: -1,
+          afkReason: ''
+        };
+      }
 
-      const user =
-        db.data.users[sender];
+      const user = db.data.users[sender];
+
+      /*
+      ─────────────────────────
+      NO QUITAR AFK SI USA .afk
+      ─────────────────────────
+      */
+
+      const isAfkCommand =
+        body.trim().toLowerCase().startsWith('.afk');
 
       /*
       ─────────────────────────
@@ -33,6 +46,7 @@ module.exports = {
       */
 
       if (
+        !isAfkCommand &&
         typeof user.afk === 'number' &&
         user.afk > 0
       ) {
@@ -68,6 +82,8 @@ module.exports = {
         user.afk = -1;
         user.afkReason = '';
 
+        await db.save();
+
         await sock.sendMessage(remoteJid, {
           text:
 `╭━━〔 ☀️ AFK DESACTIVADO 〕━━⬣
@@ -77,6 +93,8 @@ module.exports = {
 ╰━━━━━━━━━━━━━━━━⬣`,
           mentions: [sender]
         }, { quoted: msg });
+
+        return;
       }
 
       /*
@@ -85,13 +103,20 @@ module.exports = {
       ─────────────────────────
       */
 
+      const contextInfo =
+        msg.message?.extendedTextMessage?.contextInfo ||
+        msg.message?.imageMessage?.contextInfo ||
+        msg.message?.videoMessage?.contextInfo ||
+        msg.message?.documentMessage?.contextInfo ||
+        msg.message?.buttonsResponseMessage?.contextInfo ||
+        msg.message?.templateButtonReplyMessage?.contextInfo ||
+        {};
+
       const mentioned =
-        msg.message?.extendedTextMessage
-          ?.contextInfo?.mentionedJid || [];
+        contextInfo.mentionedJid || [];
 
       const quoted =
-        msg.message?.extendedTextMessage
-          ?.contextInfo?.participant;
+        contextInfo.participant;
 
       const users = [
         ...new Set([
@@ -104,10 +129,10 @@ module.exports = {
 
         if (jid === sender) continue;
 
+        if (!db.data.users[jid]) continue;
+
         const target =
           db.data.users[jid];
-
-        if (!target) continue;
 
         if (
           typeof target.afk !== 'number' ||
