@@ -69,7 +69,7 @@ Menu audios: .menuaudios
 .caracruz (lanzar moneda)
 .math (juego de matemáticas)
 .ttt (tateti)
-
+.duelo
 ━━━━━━━━━━━━━━━━━━━
 🎵 *DESCARGAS*
 ━━━━━━━━━━━━━━━━━━━
