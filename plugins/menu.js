@@ -99,6 +99,12 @@ Menu audios: .menuaudios
 ➤ *${p}disable* → Desactivar función
 
 ━━━━━━━━━━━━━━━━━━━
+🫪 *Admin*
+━━━━━━━━━━━━━━━━━━━
+➤ *${p}.del* → eliminar msj
+➤ *${p}.kick* → baneo
+━━━━━━━━━━━━━━━━━━━
+
 👑 *OWNER*
 ━━━━━━━━━━━━━━━━━━━
 ➤ *${p}addxp* → Añadir XP
