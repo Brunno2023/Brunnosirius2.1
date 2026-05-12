@@ -44,6 +44,17 @@ module.exports = {
         msg.message?.videoMessage?.caption ||
         '';
 
+      if (!text.trim()) return;
+
+      /*
+      ─────────────────────────
+      EVITAR COMANDOS
+      ─────────────────────────
+      */
+
+      const isCommand =
+        /^[./#!]/.test(text.trim());
+
       /*
       ─────────────────────────
       DETECTAR COMANDO AFK
@@ -62,10 +73,10 @@ module.exports = {
       */
 
       if (
+        !isCommand &&
         !isAfkCommand &&
         typeof user.afk === 'number' &&
-        user.afk > 0 &&
-        text.trim()
+        user.afk > 0
       ) {
 
         const tiempo =
@@ -110,6 +121,8 @@ module.exports = {
 ╰━━━━━━━━━━━━━━━━⬣`,
           mentions: [sender]
         }, { quoted: msg });
+
+        return;
       }
 
       /*
