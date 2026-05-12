@@ -44,7 +44,22 @@ module.exports = {
         msg.message?.videoMessage?.caption ||
         '';
 
-      if (!text.trim()) return;
+      /*
+      ─────────────────────────
+      DETECTAR MENSAJE REAL
+      ─────────────────────────
+      */
+
+      const hasMessage =
+        !!msg.message?.conversation ||
+        !!msg.message?.extendedTextMessage?.text ||
+        !!msg.message?.imageMessage ||
+        !!msg.message?.videoMessage ||
+        !!msg.message?.audioMessage ||
+        !!msg.message?.stickerMessage ||
+        !!msg.message?.documentMessage;
+
+      if (!hasMessage) return;
 
       /*
       ─────────────────────────
