@@ -3,16 +3,13 @@
 const db = require('../lib/database');
 
 module.exports = {
-  commands: [],
 
-  async execute(ctx) {
-
-    const {
-      sock,
-      msg,
-      sender,
-      remoteJid
-    } = ctx;
+  async onMessage({
+    sock,
+    msg,
+    sender,
+    remoteJid
+  }) {
 
     try {
 
@@ -22,33 +19,67 @@ module.exports = {
       const user =
         db.data.users[sender];
 
-      // QUITAR AFK
+      /*
+      ─────────────────────────
+      QUITAR AFK
+      ─────────────────────────
+      */
 
-      if (user && user.afk) {
+      if (
+        user &&
+        typeof user.afk === 'number' &&
+        user.afk > 0
+      ) {
 
         const tiempo =
           Math.floor(
             (Date.now() - user.afk) / 1000
           );
 
+        const horas =
+          Math.floor(tiempo / 3600);
+
+        const minutos =
+          Math.floor((tiempo % 3600) / 60);
+
+        const segundos =
+          tiempo % 60;
+
+        let textoTiempo = '';
+
+        if (horas)
+          textoTiempo += `${horas}h `;
+
+        if (minutos)
+          textoTiempo += `${minutos}m `;
+
+        if (segundos)
+          textoTiempo += `${segundos}s`;
+
         const reason =
           user.afkReason || 'Sin razón';
 
-        user.afk = 0;
+        user.afk = -1;
         user.afkReason = '';
+
+        await db.save();
 
         await sock.sendMessage(remoteJid, {
           text:
 `╭━━〔 ☀️ AFK DESACTIVADO 〕━━⬣
 ┃ 👤 @${sender.split('@')[0]}
 ┃ 💬 ${reason}
-┃ ⏳ ${tiempo}s ausente
+┃ ⏳ ${textoTiempo || '0s'} ausente
 ╰━━━━━━━━━━━━━━━━⬣`,
           mentions: [sender]
         }, { quoted: msg });
       }
 
-      // DETECTAR MENCIONES
+      /*
+      ─────────────────────────
+      DETECTAR MENCIONES
+      ─────────────────────────
+      */
 
       const mentioned =
         msg.message?.extendedTextMessage
@@ -66,16 +97,42 @@ module.exports = {
 
       for (const jid of users) {
 
+        if (jid === sender) continue;
+
         const target =
           db.data.users[jid];
 
         if (!target) continue;
-        if (!target.afk) continue;
+
+        if (
+          typeof target.afk !== 'number' ||
+          target.afk < 0
+        ) continue;
 
         const tiempo =
           Math.floor(
             (Date.now() - target.afk) / 1000
           );
+
+        const horas =
+          Math.floor(tiempo / 3600);
+
+        const minutos =
+          Math.floor((tiempo % 3600) / 60);
+
+        const segundos =
+          tiempo % 60;
+
+        let textoTiempo = '';
+
+        if (horas)
+          textoTiempo += `${horas}h `;
+
+        if (minutos)
+          textoTiempo += `${minutos}m `;
+
+        if (segundos)
+          textoTiempo += `${segundos}s`;
 
         const reason =
           target.afkReason || 'Sin razón';
@@ -85,7 +142,7 @@ module.exports = {
 `╭━━〔 🌙 USUARIO AFK 〕━━⬣
 ┃ 👤 @${jid.split('@')[0]}
 ┃ 💬 ${reason}
-┃ ⏳ ${tiempo}s ausente
+┃ ⏳ ${textoTiempo || '0s'} ausente
 ╰━━━━━━━━━━━━━━━━⬣`,
           mentions: [jid]
         }, { quoted: msg });
