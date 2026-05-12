@@ -32,12 +32,14 @@ module.exports = {
 
       /*
       ─────────────────────────
-      NO QUITAR AFK SI USA .afk
+      DETECTAR COMANDO AFK
       ─────────────────────────
       */
 
       const isAfkCommand =
-        body.trim().toLowerCase().startsWith('.afk');
+        /^([./#!])afk\b/i.test(
+          body.trim()
+        );
 
       /*
       ─────────────────────────
@@ -93,8 +95,6 @@ module.exports = {
 ╰━━━━━━━━━━━━━━━━⬣`,
           mentions: [sender]
         }, { quoted: msg });
-
-        return;
       }
 
       /*
