@@ -3,22 +3,20 @@
 module.exports = {
   commands: ['listanum', 'kicknum'],
 
-  async execute(ctx) {
-    const {
-      sock,
-      msg,
-      remoteJid,
-      args,
-      participants,
-      command,
-      isGroup,
-      isAdmin,
-      isBotAdmin
-    } = ctx;
+  async execute({
+    sock,
+    msg,
+    remoteJid,
+    args,
+    participants,
+    command,
+    isAdmin,
+    isBotAdmin
+  }) {
 
     try {
 
-      if (!isGroup) {
+      if (!remoteJid.endsWith('@g.us')) {
         return sock.sendMessage(remoteJid, {
           text: '❌ Este comando solo funciona en grupos'
         }, { quoted: msg });
