@@ -20,6 +20,8 @@ module.exports = {
       }
 
       const metadata = await sock.groupMetadata(remoteJid);
+      console.log(metadata.participants)
+console.log(sock.user)
 
       const sender =
         msg.key.participant || msg.key.remoteJid;
