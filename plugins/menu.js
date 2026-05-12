@@ -61,6 +61,7 @@ Menu audios: .menuaudios
 ➤ *${p}consejo*
 ➤ *${p}frase*
 ➤ *${p}historiaromantica*
+➤ *${p}afk*
 
 ━━━━━━━━━━━━━━━━━━━
 🎮 *Juegos*
