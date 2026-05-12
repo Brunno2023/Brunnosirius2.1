@@ -63,6 +63,14 @@ Menu audios: .menuaudios
 ➤ *${p}historiaromantica*
 
 ━━━━━━━━━━━━━━━━━━━
+🎮 *Juegos*
+━━━━━━━━━━━━━━━━━━━
+.ppt ( piedra, papel,tijera)
+.caracruz (lanzar moneda)
+.math (juego de matemáticas)
+.ttt (tateti)
+
+━━━━━━━━━━━━━━━━━━━
 🎵 *DESCARGAS*
 ━━━━━━━━━━━━━━━━━━━
 ➤ *${p}play* → Audio de YouTube
