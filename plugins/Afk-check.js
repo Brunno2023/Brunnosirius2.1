@@ -125,7 +125,6 @@ module.exports = {
         user.afk = -1;
         user.afkReason = '';
 
-        await db.save();
 
         await sock.sendMessage(remoteJid, {
           text:
