@@ -19,28 +19,37 @@ module.exports = {
         }, { quoted: msg });
       }
 
-      const metadata = await sock.groupMetadata(remoteJid);
-      console.log(metadata.participants)
-console.log(sock.user)
+      const metadata =
+        await sock.groupMetadata(remoteJid);
 
       const sender =
         msg.key.participant || msg.key.remoteJid;
 
-      const botNumber =
-        sock.user.id.split(':')[0] + '@s.whatsapp.net';
-
       const senderData =
         metadata.participants.find(
-          p => p.id === sender
+          p =>
+            p.jid === sender ||
+            p.jid?.startsWith(
+              sender.split('@')[0]
+            )
         );
 
       const botData =
         metadata.participants.find(
-          p => p.id === botNumber
+          p =>
+            p.jid === sock.user.id ||
+            p.jid?.startsWith(
+              sock.user.id.split(':')[0]
+            )
         );
 
-      const isAdmin = !!senderData?.admin;
-      const isBotAdmin = !!botData?.admin;
+      const isAdmin =
+        senderData?.admin === 'admin' ||
+        senderData?.admin === 'superadmin';
+
+      const isBotAdmin =
+        botData?.admin === 'admin' ||
+        botData?.admin === 'superadmin';
 
       if (!isAdmin) {
         return sock.sendMessage(remoteJid, {
@@ -55,12 +64,12 @@ console.log(sock.user)
       }
 
       const mentioned =
-        msg.message?.extendedTextMessage?.contextInfo
-          ?.mentionedJid?.[0];
+        msg.message?.extendedTextMessage
+          ?.contextInfo?.mentionedJid?.[0];
 
       const quoted =
-        msg.message?.extendedTextMessage?.contextInfo
-          ?.participant;
+        msg.message?.extendedTextMessage
+          ?.contextInfo?.participant;
 
       const user = mentioned || quoted;
 
@@ -70,7 +79,12 @@ console.log(sock.user)
         }, { quoted: msg });
       }
 
-      if (user === botNumber) return;
+      if (
+        user === sock.user.id ||
+        user.startsWith(
+          sock.user.id.split(':')[0]
+        )
+      ) return;
 
       await sock.groupParticipantsUpdate(
         remoteJid,
