@@ -46,13 +46,14 @@ module.exports = {
         }, { quoted: msg });
       }
 
-      const user =
-        await db.getUser(sender);
+      if (!db.data) db.data = {};
+      if (!db.data.users) db.data.users = {};
+      if (!db.data.users[sender]) {
+        db.data.users[sender] = {};
+      }
 
-      user.afk = Date.now();
-      user.afkReason = text;
-
-      await db.save();
+      db.data.users[sender].afk = Date.now();
+      db.data.users[sender].afkReason = text;
 
       await sock.sendMessage(remoteJid, {
         text:
