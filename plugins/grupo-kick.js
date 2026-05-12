@@ -22,16 +22,14 @@ module.exports = {
       const metadata =
         await sock.groupMetadata(remoteJid);
 
-      const sender =
-        msg.key.participant || msg.key.remoteJid;
+      const senderLid =
+        msg.key.participant;
 
       const senderData =
         metadata.participants.find(
           p =>
-            p.jid === sender ||
-            p.jid?.startsWith(
-              sender.split('@')[0]
-            )
+            p.id === senderLid ||
+            p.lid === senderLid
         );
 
       const botData =
@@ -79,16 +77,30 @@ module.exports = {
         }, { quoted: msg });
       }
 
+      const target =
+        metadata.participants.find(
+          p =>
+            p.jid === user ||
+            p.id === user ||
+            p.lid === user
+        );
+
+      if (!target) {
+        return sock.sendMessage(remoteJid, {
+          text: '❌ Usuario no encontrado'
+        }, { quoted: msg });
+      }
+
       if (
-        user === sock.user.id ||
-        user.startsWith(
+        target.jid === sock.user.id ||
+        target.jid?.startsWith(
           sock.user.id.split(':')[0]
         )
       ) return;
 
       await sock.groupParticipantsUpdate(
         remoteJid,
-        [user],
+        [target.jid],
         'remove'
       );
 
