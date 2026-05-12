@@ -16,7 +16,7 @@ module.exports = {
         body
       } = ctx;
 
-      if (!body) return;
+      if (!sender) return;
 
       if (!db.data) db.data = {};
       if (!db.data.users) db.data.users = {};
@@ -32,13 +32,27 @@ module.exports = {
 
       /*
       ─────────────────────────
+      OBTENER TEXTO REAL
+      ─────────────────────────
+      */
+
+      const text =
+        body ||
+        msg.message?.conversation ||
+        msg.message?.extendedTextMessage?.text ||
+        msg.message?.imageMessage?.caption ||
+        msg.message?.videoMessage?.caption ||
+        '';
+
+      /*
+      ─────────────────────────
       DETECTAR COMANDO AFK
       ─────────────────────────
       */
 
       const isAfkCommand =
         /^([./#!])afk\b/i.test(
-          body.trim()
+          text.trim()
         );
 
       /*
@@ -50,7 +64,8 @@ module.exports = {
       if (
         !isAfkCommand &&
         typeof user.afk === 'number' &&
-        user.afk > 0
+        user.afk > 0 &&
+        text.trim()
       ) {
 
         const tiempo =
@@ -99,7 +114,7 @@ module.exports = {
 
       /*
       ─────────────────────────
-      DETECTAR MENCIONES
+      CONTEXT INFO
       ─────────────────────────
       */
 
@@ -108,9 +123,13 @@ module.exports = {
         msg.message?.imageMessage?.contextInfo ||
         msg.message?.videoMessage?.contextInfo ||
         msg.message?.documentMessage?.contextInfo ||
-        msg.message?.buttonsResponseMessage?.contextInfo ||
-        msg.message?.templateButtonReplyMessage?.contextInfo ||
         {};
+
+      /*
+      ─────────────────────────
+      DETECTAR MENCIONES
+      ─────────────────────────
+      */
 
       const mentioned =
         contextInfo.mentionedJid || [];
