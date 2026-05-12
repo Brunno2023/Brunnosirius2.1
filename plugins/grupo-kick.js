@@ -105,8 +105,14 @@ module.exports = {
       );
 
       await sock.sendMessage(remoteJid, {
-        text: '✅ Usuario eliminado'
-      }, { quoted: msg });
+  text:
+`╭━━〔 🚫 EXPULSIÓN 〕━━⬣
+┃ 👤 Usuario eliminado
+┃ 📛 @${target.jid.split('@')[0]}
+┃ ⚡ Acción realizada correctamente
+╰━━━━━━━━━━━━━━━━⬣`,
+  mentions: [target.jid]
+}, { quoted: msg });
 
     } catch (e) {
 
