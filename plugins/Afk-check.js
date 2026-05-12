@@ -4,17 +4,24 @@ const db = require('../lib/database');
 
 module.exports = {
 
-  async onMessage({
-    sock,
-    msg,
-    sender,
-    remoteJid
-  }) {
+  async onMessage(ctx) {
 
     try {
 
+      const {
+        sock,
+        msg,
+        sender,
+        remoteJid,
+        body
+      } = ctx;
+
+      if (!body) return;
+
       if (!db.data) return;
       if (!db.data.users) return;
+
+      if (!db.data.users[sender]) return;
 
       const user =
         db.data.users[sender];
@@ -26,7 +33,6 @@ module.exports = {
       */
 
       if (
-        user &&
         typeof user.afk === 'number' &&
         user.afk > 0
       ) {
@@ -62,8 +68,6 @@ module.exports = {
         user.afk = -1;
         user.afkReason = '';
 
-        await db.save();
-
         await sock.sendMessage(remoteJid, {
           text:
 `╭━━〔 ☀️ AFK DESACTIVADO 〕━━⬣
@@ -89,11 +93,12 @@ module.exports = {
         msg.message?.extendedTextMessage
           ?.contextInfo?.participant;
 
-      const users =
-        [...new Set([
+      const users = [
+        ...new Set([
           ...mentioned,
           ...(quoted ? [quoted] : [])
-        ])];
+        ])
+      ];
 
       for (const jid of users) {
 
@@ -149,7 +154,7 @@ module.exports = {
       }
 
     } catch (e) {
-      console.log(e);
+      console.log('AFK ERROR:', e);
     }
   }
 };
