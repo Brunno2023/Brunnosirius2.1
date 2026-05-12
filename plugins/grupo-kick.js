@@ -1,22 +1,20 @@
 'use strict';
 
 module.exports = {
-  commands: ['kick', 'echar', 'hechar', 'sacar', 'ban'],
+  commands: ['kick', 'echar', 'sacar', 'ban'],
 
-  async execute(ctx) {
-    const {
-      sock,
-      msg,
-      remoteJid,
-      isGroup,
-      isAdmin,
-      isBotAdmin,
-      mentionedJid
-    } = ctx;
+  async execute({
+    sock,
+    msg,
+    remoteJid,
+    mentionedJid,
+    isAdmin,
+    isBotAdmin
+  }) {
 
     try {
 
-      if (!isGroup) {
+      if (!remoteJid.endsWith('@g.us')) {
         return sock.sendMessage(remoteJid, {
           text: '❌ Este comando solo funciona en grupos'
         }, { quoted: msg });
@@ -24,13 +22,13 @@ module.exports = {
 
       if (!isAdmin) {
         return sock.sendMessage(remoteJid, {
-          text: '❌ Solo administradores pueden usar este comando'
+          text: '❌ Solo admins pueden usar este comando'
         }, { quoted: msg });
       }
 
       if (!isBotAdmin) {
         return sock.sendMessage(remoteJid, {
-          text: '❌ El bot debe ser administrador'
+          text: '❌ El bot debe ser admin'
         }, { quoted: msg });
       }
 
@@ -38,13 +36,18 @@ module.exports = {
 
       if (mentionedJid && mentionedJid[0]) {
         user = mentionedJid[0];
-      } else if (msg.message?.extendedTextMessage?.contextInfo?.participant) {
-        user = msg.message.extendedTextMessage.contextInfo.participant;
+      }
+
+      else if (
+        msg.message?.extendedTextMessage?.contextInfo?.participant
+      ) {
+        user =
+          msg.message.extendedTextMessage.contextInfo.participant;
       }
 
       if (!user) {
         return sock.sendMessage(remoteJid, {
-          text: '❌ Etiqueta o responde a alguien'
+          text: '❌ Etiqueta o responde a un usuario'
         }, { quoted: msg });
       }
 
@@ -64,7 +67,7 @@ module.exports = {
       console.log(err);
 
       await sock.sendMessage(remoteJid, {
-        text: '❌ Error al expulsar usuario'
+        text: '❌ Error al expulsar'
       }, { quoted: msg });
     }
   }
