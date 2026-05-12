@@ -1,11 +1,17 @@
 'use strict';
 
 // ─── PIEDRA, PAPEL O TIJERA ───────────────────────────────────────────────────
-// Comandos: ppt, suit, pvp
-// Modo vs Bot: .ppt piedra | .ppt papel | .ppt tijera
-// Modo PVP:   .pvp @usuario  → desafía a otro jugador
-//             El retado escribe: aceptar / rechazar
-//             Luego ambos envían su elección en privado o en el grupo
+// Comandos: ppt, suit, pvp, suitpvp
+//
+// Modo vs Bot:  .ppt piedra | .ppt papel | .ppt tijera  (en cualquier chat)
+//
+// Modo PVP (solo grupos):
+//   1. .pvp @usuario         → desafía a otro jugador
+//   2. El retado escribe:    aceptar / rechazar  (en el grupo)
+//   3. Cuando se acepta, el bot le escribe a CADA jugador por privado
+//      pidiéndole su jugada en secreto.
+//   4. Cada jugador responde al bot en privado con: piedra / papel / tijera
+//   5. El bot anuncia el resultado EN EL GRUPO.
 
 const pvpRooms = new Map(); // id → room
 const TIMEOUT_MS = 60_000;
@@ -28,6 +34,11 @@ function mention(jid = '') {
   return '@' + jid.split('@')[0];
 }
 
+// JID de chat privado: "número@s.whatsapp.net"
+function privatJid(jid = '') {
+  return jid.split('@')[0] + '@s.whatsapp.net';
+}
+
 function getWinner(a, b) {
   if (a === b) return 'empate';
   return BEATS[a] === b ? 'a' : 'b';
@@ -40,7 +51,7 @@ function playVsBot(choice) {
   return { bot, result };
 }
 
-function vsBotText(name, choice, bot, result) {
+function vsBotText(choice, bot, result) {
   const header =
     result === 'empate' ? '🤝 ¡EMPATE!'
     : result === 'a'    ? '🎉 ¡GANASTE!'
@@ -61,7 +72,7 @@ function createRoom(challenger, challenged, chatJid) {
     challenger,
     challenged,
     choices: {},
-    status: 'waiting', // waiting → accepted → playing → done
+    status: 'waiting', // waiting → playing → done
     timer: null
   };
   pvpRooms.set(id, room);
@@ -87,9 +98,8 @@ async function resolveMatch(sock, room) {
   const cB = choices[challenged];
 
   const result = getWinner(cA, cB);
-
-  let text;
   const mentions = [challenger, challenged];
+  let text;
 
   if (result === 'empate') {
     text =
@@ -98,8 +108,8 @@ async function resolveMatch(sock, room) {
 ${mention(challenger)}: ${EMOJI[cA]} ${cA}
 ${mention(challenged)}: ${EMOJI[cB]} ${cB}`;
   } else {
-    const winner = result === 'a' ? challenger : challenged;
-    const loser  = result === 'a' ? challenged : challenger;
+    const winner  = result === 'a' ? challenger : challenged;
+    const loser   = result === 'a' ? challenged : challenger;
     const wChoice = result === 'a' ? cA : cB;
     const lChoice = result === 'a' ? cB : cA;
 
@@ -107,10 +117,12 @@ ${mention(challenged)}: ${EMOJI[cB]} ${cB}`;
 `🏆 *¡TENEMOS GANADOR!*
 
 🥇 ${mention(winner)}: ${EMOJI[wChoice]} ${wChoice}
-💀 ${mention(loser)}:  ${EMOJI[lChoice]} ${lChoice}`;
+💀 ${mention(loser)}: ${EMOJI[lChoice]} ${lChoice}`;
   }
 
   deleteRoom(room.id);
+
+  // Anunciar resultado en el GRUPO
   await sock.sendMessage(chatJid, { text, mentions });
 }
 
@@ -133,7 +145,7 @@ module.exports = {
 
       if (!mentioned) {
         return sock.sendMessage(remoteJid, {
-          text: `⚠️ Menciona a alguien para desafiar.\nEjemplo: *.pvp @usuario*`
+          text: '⚠️ Menciona a alguien para desafiar.\nEjemplo: *.pvp @usuario*'
         }, { quoted: msg });
       }
 
@@ -162,7 +174,7 @@ module.exports = {
         if (!pvpRooms.has(room.id)) return;
         deleteRoom(room.id);
         await sock.sendMessage(remoteJid, {
-          text: `⏰ El reto de ${mention(sender)} a ${mention(mentioned)} expiró por falta de respuesta.`,
+          text: `⏰ El reto de ${mention(sender)} a ${mention(mentioned)} expiró sin respuesta.`,
           mentions: [sender, mentioned]
         });
       }, TIMEOUT_MS);
@@ -192,16 +204,15 @@ Elige tu jugada:
 • *.ppt papel*
 • *.ppt tijera*
 
-O desafía a alguien:
+O desafía a alguien en el grupo:
 • *.pvp @usuario*`
       }, { quoted: msg });
     }
 
     const { bot, result } = playVsBot(choice);
-    const name = mention(sender);
 
     return sock.sendMessage(remoteJid, {
-      text: vsBotText(name, choice, bot, result),
+      text: vsBotText(choice, bot, result),
       mentions: [sender]
     }, { quoted: msg });
   },
@@ -209,16 +220,18 @@ O desafía a alguien:
   async onMessage(ctx) {
     const { sock, remoteJid, body, sender, msg } = ctx;
 
-    const room = getRoomByPlayer(sender);
-    if (!room || room.chatJid !== remoteJid) return;
-
     const text = body.trim().toLowerCase();
+    const room = getRoomByPlayer(sender);
+    if (!room) return;
 
-    // ── Aceptar / rechazar desafío ────────────────────────────────────────────
-    if (room.status === 'waiting' && sender === room.challenged) {
+    const isPrivate = !remoteJid.endsWith('@g.us');
+    const isGroup   = remoteJid === room.chatJid;
+
+    // ── Aceptar / rechazar (en el grupo) ─────────────────────────────────────
+    if (room.status === 'waiting' && sender === room.challenged && isGroup) {
       if (text === 'rechazar') {
         deleteRoom(room.id);
-        return sock.sendMessage(remoteJid, {
+        return sock.sendMessage(room.chatJid, {
           text: `❌ ${mention(room.challenged)} rechazó el reto.`,
           mentions: [room.challenger, room.challenged]
         });
@@ -226,39 +239,62 @@ O desafía a alguien:
 
       if (text === 'aceptar') {
         room.status = 'playing';
-        return sock.sendMessage(remoteJid, {
+
+        // Avisar en el grupo
+        await sock.sendMessage(room.chatJid, {
           text:
 `✅ *¡Reto aceptado!*
 
-${mention(room.challenger)} y ${mention(room.challenged)}, cada uno envíe su jugada aquí:
-• *piedra*  🪨
-• *papel*   📄
-• *tijera*  ✂️`,
+${mention(room.challenger)} y ${mention(room.challenged)}, les envié un mensaje privado.
+📩 *Envíen su jugada al bot en privado* para que el rival no la vea.`,
           mentions: [room.challenger, room.challenged]
         });
+
+        // Escribir a cada jugador en PRIVADO
+        const instrucciones =
+`🎮 *PIEDRA, PAPEL O TIJERA — PVP*
+
+Envía tu jugada aquí en privado:
+• *piedra* 🪨
+• *papel*  📄
+• *tijera* ✂️
+
+⚠️ El resultado se anunciará en el grupo cuando ambos elijan.`;
+
+        await sock.sendMessage(privatJid(room.challenger), { text: instrucciones });
+        await sock.sendMessage(privatJid(room.challenged), { text: instrucciones });
+
+        return;
       }
     }
 
-    // ── Enviar jugada ─────────────────────────────────────────────────────────
-    if (room.status === 'playing' && CHOICES.includes(text)) {
+    // ── Recibir jugada (en PRIVADO) ───────────────────────────────────────────
+    if (room.status === 'playing' && isPrivate && CHOICES.includes(text)) {
       if (room.choices[sender]) {
-        return sock.sendMessage(remoteJid, {
-          text: `⚠️ ${mention(sender)}, ya enviaste tu jugada. Esperando al otro jugador...`,
-          mentions: [sender]
-        }, { quoted: msg });
+        return sock.sendMessage(privatJid(sender), {
+          text: `⚠️ Ya enviaste tu jugada (${EMOJI[room.choices[sender]]} ${room.choices[sender]}). Esperando al otro jugador...`
+        });
       }
 
       room.choices[sender] = text;
 
-      await sock.sendMessage(remoteJid, {
-        text: `✅ ${mention(sender)} eligió su jugada. ⏳`,
-        mentions: [sender]
+      // Confirmar al jugador en privado
+      await sock.sendMessage(privatJid(sender), {
+        text: `✅ Jugada registrada: ${EMOJI[text]} *${text}*\nEsperando al otro jugador...`
       });
 
-      // Ambos jugaron → resolver
+      // Avisar en el grupo que alguien ya eligió (sin revelar qué)
+      const other = sender === room.challenger ? room.challenged : room.challenger;
+      await sock.sendMessage(room.chatJid, {
+        text: `🔒 ${mention(sender)} ya envió su jugada. Esperando a ${mention(other)}...`,
+        mentions: [sender, other]
+      });
+
+      // Ambos eligieron → resolver en el grupo
       if (room.choices[room.challenger] && room.choices[room.challenged]) {
         await resolveMatch(sock, room);
       }
     }
   }
 };
+        
