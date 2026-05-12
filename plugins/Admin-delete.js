@@ -3,20 +3,35 @@
 module.exports = {
   commands: ['eliminar', 'delete', 'del'],
 
-  async execute({ sock, msg, remoteJid, fromGroup, isBotAdmin, isAdmin }) {
+  async execute({ sock, msg, remoteJid, fromGroup, isAdmin, isBotAdmin, groupMetadata, botJid }) {
     if (!fromGroup) {
       return sock.sendMessage(remoteJid, {
         text: '❌ Este comando solo funciona en grupos.'
       }, { quoted: msg });
     }
 
-    if (!isAdmin) {
+    const participants = groupMetadata?.participants || [];
+
+    const senderJid = msg.key?.participant || '';
+    const cleanNum = jid => String(jid).split('@')[0].split(':')[0].replace(/\D/g, '');
+
+    const senderIsAdmin = participants.some(p =>
+      cleanNum(p.jid || p.id || '') === cleanNum(senderJid) &&
+      (p.admin === 'admin' || p.admin === 'superadmin')
+    );
+
+    const botIsAdmin = participants.some(p =>
+      cleanNum(p.jid || p.id || '') === cleanNum(botJid) &&
+      (p.admin === 'admin' || p.admin === 'superadmin')
+    );
+
+    if (!senderIsAdmin) {
       return sock.sendMessage(remoteJid, {
         text: '❌ Solo los admins pueden usar este comando.'
       }, { quoted: msg });
     }
 
-    if (!isBotAdmin) {
+    if (!botIsAdmin) {
       return sock.sendMessage(remoteJid, {
         text: '❌ El bot necesita ser admin para eliminar mensajes.'
       }, { quoted: msg });
