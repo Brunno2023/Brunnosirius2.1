@@ -34,28 +34,7 @@ const attacks = [
   '🪨 lanzó una piedra emocional',
   '🎒 pegó con una mochila llena',
   '💡 atacó con factura de luz',
-  '🚌 hizo técnica secreta de combi',
-  // ── nuevos ──
-  '🧃 lanzó un jugo de caja caducado',
-  '🐔 invocó el espíritu del pollo a la brasa',
-  '📱 mandó cadena de WhatsApp como proyectil',
-  '🧻 atacó con rollo de papel higiénico del 2020',
-  '🫙 tiró mayonesa industrial en la cara',
-  '👟 hizo el clásico zapatillazo de mamá',
-  '🎤 soltó freestyle destructor de autoestima',
-  '🕵️ usó técnica del vecino chismoso',
-  '🧲 activó el poder del imán de mala suerte',
-  '🦆 invocó al pato de la mala vibra',
-  '📣 gritó tan fuerte que cayó la señal',
-  '🫀 atacó con fuerza del desamor acumulado',
-  '🧿 lanzó mal de ojo concentrado',
-  '🥴 hizo cara de no entender nada y confundió al rival',
-  '🍌 resbaló al rival con cáscara estratégica',
-  '🎲 usó suerte de juego de parqués como arma',
-  '🪣 tiró un balde de agua fría emocionalmente',
-  '🧦 atacó con calcetín usado de tres días',
-  '🗑️ invocó el poder del cubo de la basura lleno',
-  '🪠 sacó el desatascador de baño como lanza',
+  '🚌 hizo técnica secreta de combi'
 ];
 
 const dodgeActions = [
@@ -68,18 +47,7 @@ const dodgeActions = [
   'hizo una maniobra de mototaxi',
   'desapareció por puro lag',
   'bloqueó con una mochila',
-  'se movió como NPC bugueado',
-  // ── nuevos ──
-  'se hizo el dormido y lo ignoró',
-  'mandó a su prima a recibir el golpe',
-  'abrió el paraguas justo a tiempo',
-  'se escondió detrás de un poste',
-  'fingió un calambre y esquivó por error',
-  'se distrajo y el golpe pasó rozando',
-  'lo bloqueó con la biblia de la abuela',
-  'dijo "espera" y el rival se detuvo',
-  'cayó al piso antes del golpe por torpeza',
-  'activó escudo invisible de pura suerte',
+  'se movió como NPC bugueado'
 ];
 
 const crits = [
@@ -88,12 +56,7 @@ const crits = [
   '💀 *COMBO MORTAL*',
   '🌪️ *PODER DESCONTROLADO*',
   '☄️ *IMPACTO CELESTIAL*',
-  '🩸 *DAÑO BRUTAL*',
-  // ── nuevos ──
-  '🤯 *ATAQUE INESPERADO*',
-  '👊 *GOLPE DEL BARRIO*',
-  '💥 *DESTRUCCIÓN TOTAL*',
-  '🌋 *TÉCNICA PROHIBIDA*',
+  '🩸 *DAÑO BRUTAL*'
 ];
 
 const fatalities = [
@@ -106,18 +69,7 @@ const fatalities = [
   'terminó pidiendo taxi a casa',
   'se rindió dramáticamente',
   'fue derrotado por el presupuesto',
-  'quedó como NPC secundario',
-  // ── nuevos ──
-  'fue eliminado del grupo de WhatsApp de la familia',
-  'quedó bloqueado hasta nuevo aviso',
-  'salió corriendo sin mirar atrás',
-  'se fue a llorar al baño',
-  'pidió disculpas públicamente y se retiró',
-  'quedó sin señal ni dignidad',
-  'fue trasladado al grupo de los perdedores',
-  'apagó el teléfono y desapareció tres días',
-  'quedó en visto para siempre',
-  'fue derrotado tan fuerte que cambió de número',
+  'quedó como NPC secundario'
 ];
 
 const battleIntros = [
@@ -126,14 +78,7 @@ const battleIntros = [
   '🔥 Una energía rara empezó a rodear el grupo...',
   '🌪️ El suelo tembló como pelea final de anime...',
   '👀 El público empezó a mirar el duelo con miedo...',
-  '🥁 La tensión subió como precio del pollo...',
-  // ── nuevos ──
-  '📵 Hasta el modo avión se activó solo de los nervios...',
-  '🍿 El grupo abrió palomitas y esperó en silencio...',
-  '😰 Los moderadores rezaron en privado...',
-  '🧨 El chat explotó de emoción antes de empezar...',
-  '🌑 La luz del grupo parpadeó tres veces...',
-  '🤐 Todos pusieron el teléfono en silencio para ver bien...',
+  '🥁 La tensión subió como precio del pollo...'
 ];
 
 function pick(arr) {
