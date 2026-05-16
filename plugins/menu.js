@@ -49,6 +49,7 @@ Menu audios: .menuaudios
 😂 *DIVERSIÓN*
 ━━━━━━━━━━━━━━━━━━━
 ➤ *${p}piropo*
+➤ *${p}matrimonio*
 ➤ *${p}pregunta*
 ➤ *${p}trivia*
 ➤ *${p}formarpareja*
