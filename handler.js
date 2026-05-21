@@ -349,6 +349,11 @@ async function messageHandler(sock, msg, store = {}) {
 
     const plugin = plugins.get(command);
     if (!plugin) return;
+    if (await isBanned(remoteJid) && command !== 'unbanchat') {
+  return sock.sendMessage(remoteJid, {
+    text: '🚫 Este grupo está baneado'
+  }, { quoted: msg });
+    }
 
     if (!isOwner) {
       if (fromGroup) {
