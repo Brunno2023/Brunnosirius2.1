@@ -6,6 +6,7 @@ const chalk = require('chalk');
 
 const config = require('./config');
 const db = require('./lib/database');
+const isBanned = require('./lib/isBanned');
 
 const {
   getBody,
