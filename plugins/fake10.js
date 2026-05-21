@@ -12,7 +12,7 @@ module.exports = {
     const titulo_cita = 'Cita Titulo';
     const text_cita = 'Cita Texto';
     const img_cita = 'https://qu.ax/TPVV.jpg';
-    const titulo_fkontak = 'Gata Dios';
+    const titulo_fkontak = 'josesiño Xd';
     const sourceUrl = 'https://example.com';
 
     const fkontak = {
