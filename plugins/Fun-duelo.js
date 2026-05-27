@@ -12,7 +12,7 @@ const cooldowns = new Map();
 
 const ACCEPT_TIME = 60 * 1000;
 const COOLDOWN = 5 * 60 * 1000;
-const ATTACK_DELAY = 10 * 1000;
+const ATTACK_DELAY = 3 * 1000;
 
 const attacks = [
   '🥊 lanzó una patada voladora',
@@ -309,7 +309,7 @@ ${bet > 0 ? `🎰 Apuesta inicial: *${bet} XP*` : ''}${jackpotText}
 }
 
 module.exports = {
-  commands: ['duelo', 'aceptar', 'rechazar'],
+  commands: ['duelo', 'aceptar1', 'rechazar1'],
 
   async execute(ctx) {
     const {
@@ -329,7 +329,7 @@ module.exports = {
       }, { quoted: msg });
     }
 
-    if (command === 'rechazar') {
+    if (command === 'rechazar1') {
       const duel = pendingDuels.get(remoteJid);
 
       if (!duel || duel.opponent !== sender) {
@@ -347,7 +347,7 @@ module.exports = {
       }, { quoted: msg });
     }
 
-    if (command === 'aceptar') {
+    if (command === 'aceptar1') {
       const duel = pendingDuels.get(remoteJid);
 
       if (!duel || duel.opponent !== sender) {
@@ -413,8 +413,8 @@ VS
 .duelo @usuario 500
 
 El rival debe responder:
-.aceptar
-.rechazar`
+.aceptar1
+.rechazar1`
       }, { quoted: msg });
     }
 
@@ -477,8 +477,8 @@ ${bet > 0 ? `🎰 Apuesta: *${bet} XP*` : '🎰 Apuesta: *sin apuesta*'}
 
 ⏳ ${mention(target)}, tienes *60 segundos* para responder:
 
-✅ *.aceptar*
-❌ *.rechazar*
+✅ *.aceptar1*
+❌ *.rechazar1*
 
 ╚══════════════════════╝`,
       mentions: [sender, target]
