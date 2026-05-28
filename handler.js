@@ -176,19 +176,8 @@ async function messageHandler(
       (config.owner || [])
       .map(normalize);
 
-    /*
-      número conectado del bot
-    */
-
     const botNumber =
       normalize(sock.user?.id);
-
-    /*
-      OWNER si:
-      - fromMe
-      - sender está en config.owner
-      - sender es el mismo bot
-    */
 
     const isOwner =
 
@@ -301,7 +290,18 @@ async function messageHandler(
 
           body,
 
+          fromGroup,
+
+          db,
+
+          isAdmin: false,
+
           isOwner,
+
+          pushName:
+            msg.pushName ||
+            msg.push_name ||
+            'Usuario',
 
           reply: (t) =>
             sock.sendMessage(
@@ -400,7 +400,18 @@ async function messageHandler(
 
       command,
 
+      fromGroup,
+
+      db,
+
+      isAdmin: false,
+
       isOwner,
+
+      pushName:
+        msg.pushName ||
+        msg.push_name ||
+        'Usuario',
 
       reply: (t) =>
         sock.sendMessage(
