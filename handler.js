@@ -19,8 +19,7 @@ const {
 ───────────────────────────── */
 function normalize(jid = '') {
   return String(jid)
-    .replace(/@s\.whatsapp\.net/g, '')
-    .replace(/@g\.us/g, '')
+    .split('@')[0]
     .split(':')[0]
     .replace(/\D/g, '');
 }
@@ -77,29 +76,44 @@ async function messageHandler(sock, msg, store = {}) {
 
     const key = msg.key || {};
     const remoteJid = key.remoteJid;
+
     if (!remoteJid || remoteJid === 'status@broadcast') return;
 
     const fromGroup = remoteJid.endsWith('@g.us');
 
+    /* ─────────────────────────────
+       🔥 FIX OWNER LID
+    ───────────────────────────── */
     let sender = fromGroup
-      ? key.participant || remoteJid
-      : key.remoteJid;
+      ? (
+          key.participantAlt ||
+          key.participant ||
+          msg.participant ||
+          remoteJid
+        )
+      : (
+          key.remoteJidAlt ||
+          key.remoteJid
+        );
 
-    const botJid = normalize(sock.user?.id || '');
     const body = getBody(msg);
 
     /* ─────────────────────────────
        👤 NORMALIZADO FINAL
     ───────────────────────────── */
     const senderNumber = normalize(sender);
+
     const ownerNumbers = (config.owner || []).map(normalize);
 
     const isOwner = ownerNumbers.includes(senderNumber);
+
+    const botJid = normalize(sock.user?.id || '');
 
     /* ─────────────────────────────
        🧠 OWNER DEBUG PRO
     ───────────────────────────── */
     if (config.debug) {
+
       let reason = 'OK';
 
       if (!sender) {
@@ -112,13 +126,25 @@ async function messageHandler(sock, msg, store = {}) {
         reason = '❌ NO coincide con owner';
       }
 
-      console.log(chalk.yellow('\n╔════ OWNER DEBUG PRO ════╗'));
-      console.log('RAW SENDER   :', sender);
-      console.log('CLEAN SENDER :', senderNumber);
-      console.log('OWNERS       :', ownerNumbers);
-      console.log('IS OWNER     :', isOwner);
-      console.log('REASON       :', reason);
-      console.log('╚═════════════════════════\n');
+      console.log(
+        chalk.yellow('\n╔════ OWNER DEBUG PRO ════╗')
+      );
+
+      console.log('RAW SENDER       :', sender);
+      console.log('CLEAN SENDER     :', senderNumber);
+      console.log('OWNERS           :', ownerNumbers);
+      console.log('IS OWNER         :', isOwner);
+      console.log('REASON           :', reason);
+
+      console.log('\n📦 BAILEYS DATA');
+      console.log('participant      :', key.participant);
+      console.log('participantAlt   :', key.participantAlt);
+      console.log('remoteJid        :', key.remoteJid);
+      console.log('remoteJidAlt     :', key.remoteJidAlt);
+
+      console.log(
+        '╚═════════════════════════\n'
+      );
     }
 
     /* ─────────────────────────────
@@ -126,6 +152,7 @@ async function messageHandler(sock, msg, store = {}) {
     ───────────────────────────── */
     for (const plugin of messagePlugins) {
       try {
+
         await plugin.onMessage?.({
           sock,
           msg,
@@ -133,11 +160,20 @@ async function messageHandler(sock, msg, store = {}) {
           remoteJid,
           body,
           isOwner,
+
           reply: (t) =>
-            sock.sendMessage(remoteJid, { text: String(t) }, { quoted: msg })
+            sock.sendMessage(
+              remoteJid,
+              { text: String(t) },
+              { quoted: msg }
+            )
         });
+
       } catch (e) {
-        console.log(chalk.red('onMessage error:'), e.message);
+        console.log(
+          chalk.red('onMessage error:'),
+          e.message
+        );
       }
     }
 
@@ -146,25 +182,45 @@ async function messageHandler(sock, msg, store = {}) {
     /* ─────────────────────────────
        ⚡ COMMAND PARSER
     ───────────────────────────── */
-    const parsed = detectPrefix(body, config.prefix);
+    const parsed = detectPrefix(
+      body,
+      config.prefix
+    );
+
     if (!parsed) return;
 
-    const args = parsed.body.trim().split(/\s+/);
-    const command = args.shift()?.toLowerCase();
+    const args = parsed.body
+      .trim()
+      .split(/\s+/);
+
+    const command = args
+      .shift()
+      ?.toLowerCase();
 
     const plugin = plugins.get(command);
+
     if (!plugin) return;
 
     /* ─────────────────────────────
        🚫 BAN CHECK
     ───────────────────────────── */
     if (!isOwner) {
-      const banned = await db.isBanned(senderNumber);
+
+      const banned = await db.isBanned(
+        senderNumber
+      );
 
       if (banned) {
-        return sock.sendMessage(remoteJid, {
-          text: '🚫 Estás baneado del bot'
-        }, { quoted: msg });
+
+        return sock.sendMessage(
+          remoteJid,
+          {
+            text: '🚫 Estás baneado del bot'
+          },
+          {
+            quoted: msg
+          }
+        );
       }
     }
 
@@ -172,20 +228,36 @@ async function messageHandler(sock, msg, store = {}) {
        🚀 EXECUTE
     ───────────────────────────── */
     await plugin.execute?.({
+
       sock,
       msg,
+
       sender: senderNumber,
+
       remoteJid,
       body,
       args,
       command,
       isOwner,
+
       reply: (t) =>
-        sock.sendMessage(remoteJid, { text: String(t) }, { quoted: msg })
+        sock.sendMessage(
+          remoteJid,
+          {
+            text: String(t)
+          },
+          {
+            quoted: msg
+          }
+        )
     });
 
   } catch (err) {
-    console.log(chalk.red('❌ Handler error:'), err.message);
+
+    console.log(
+      chalk.red('❌ Handler error:'),
+      err.message
+    );
   }
 }
 
