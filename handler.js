@@ -333,6 +333,9 @@ async function messageHandler(sock, msg, store = {}) {
       : [];
 
     const senderNumber = cleanNumber(sender);
+    const senderJid = String(sender)
+  .replace(/:\d+/g, '')
+  .toLowerCase();
     const remoteNumber = cleanNumber(remoteJid);
     const participantNumber = cleanNumber(key.participant || '');
     const realNumber = cleanNumber(msg.realNumber || '');
