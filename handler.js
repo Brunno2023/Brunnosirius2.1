@@ -337,18 +337,25 @@ sender = normalizeJid(sender);
       } catch {}
     }
 
-    const senderNumber = cleanNumber(sender);
-const ownerNumbers = config.owner.map(n =>
-  String(n)
-    .replace(/:\d+/g, '')
-    .replace(/@.+/g, '')
-    .replace(/\D/g, '')
-);
+    // ─────────────────────────────────────
+// 👑 OWNER SYSTEM FIXED
+// ─────────────────────────────────────
 
-const isOwner =
-  fromMe ||
-  ownerNumbers.includes(senderNumber);
-    console.log("DEBUG OWNER:", {
+const normalize = (n = '') =>
+  String(n)
+    .split('@')[0]
+    .replace(/[^0-9]/g, '');
+
+const senderNumber = normalize(sender);
+
+// normalizar lista de owners del config
+const ownerNumbers = (config.owner || []).map(normalize);
+
+// check real owner
+const isOwner = ownerNumbers.includes(senderNumber);
+
+// debug
+console.log("DEBUG OWNER:", {
   sender,
   senderNumber,
   ownerNumbers,
