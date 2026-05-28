@@ -240,6 +240,7 @@ async function startBot(opts = {}) {
 
         // 🔥 EVENTOS
         try {
+          console.log(JSON.stringify(msg, null, 2));
           await events.onMessage({
             sock,
             remoteJid,
