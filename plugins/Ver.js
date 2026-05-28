@@ -11,7 +11,7 @@ const shop = require('../lib/shop');
 
 const execFileAsync = promisify(execFile);
 
-const COSTO_VER = 10000;
+const COSTO_VER = 100;
 const PENDING_TIME = 60 * 1000;
 const TEMP_DIR = path.join(process.cwd(), 'temp');
 
