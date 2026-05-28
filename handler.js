@@ -1,38 +1,72 @@
 'use strict';
 
+const path = require('path');
+const fs = require('fs');
 const chalk = require('chalk');
+
 const config = require('./config');
 const db = require('./lib/database');
 
 const {
   getBody,
+  normalizeJid,
   detectPrefix,
   getGroupAdmins
 } = require('./lib/utils');
 
 /* ─────────────────────────────
-   👤 NORMALIZADOR ÚNICO (CRÍTICO)
+   👤 SENDER NORMALIZADOR
 ───────────────────────────── */
-const normalize = (jid = '') =>
-  String(jid)
-    .split('@')[0]
+function normalize(jid = '') {
+  return String(jid)
+    .replace(/@s\.whatsapp\.net/g, '')
+    .replace(/@g\.us/g, '')
     .split(':')[0]
     .replace(/\D/g, '');
+}
 
 /* ─────────────────────────────
-   👑 ROLE SYSTEM SIMPLE
+   PLUGINS (SIN CAMBIOS)
 ───────────────────────────── */
-function getRole(sender, groupAdmins = [], botJid = '') {
-  const id = normalize(sender);
+const plugins = new Map();
+const messagePlugins = [];
 
-  const owners = (config.owner || []).map(normalize);
-  const admins = groupAdmins.map(normalize);
+function loadPlugins() {
+  const dir = path.join(process.cwd(), 'plugins');
+  const files = fs.readdirSync(dir).filter(f => f.endsWith('.js'));
 
-  if (owners.includes(id)) return 'owner';
-  if (admins.includes(id)) return 'admin';
+  plugins.clear();
+  messagePlugins.length = 0;
 
-  return 'user';
+  for (const file of files) {
+    try {
+      const filepath = path.join(dir, file);
+      delete require.cache[require.resolve(filepath)];
+
+      const plugin = require(filepath);
+
+      if (typeof plugin.onMessage === 'function') {
+        messagePlugins.push({ ...plugin, file });
+      }
+
+      if (typeof plugin.execute === 'function') {
+        const cmds = plugin.commands || [];
+
+        for (const cmd of cmds) {
+          plugins.set(cmd.toLowerCase(), plugin);
+        }
+      }
+
+    } catch (e) {
+      console.log(chalk.red(`❌ Plugin error ${file}:`), e.message);
+    }
+  }
+
+  console.log(chalk.green(`✔ Plugins cargados: ${plugins.size}`));
 }
+
+global.loadPlugins = loadPlugins;
+loadPlugins();
 
 /* ─────────────────────────────
    MAIN HANDLER
@@ -47,66 +81,63 @@ async function messageHandler(sock, msg, store = {}) {
 
     const fromGroup = remoteJid.endsWith('@g.us');
 
-    /* ─────────────────────────────
-       👤 SENDER UNIFICADO
-    ───────────────────────────── */
     let sender = fromGroup
       ? key.participant || remoteJid
       : key.remoteJid;
-
-    sender = normalize(sender);
 
     const botJid = normalize(sock.user?.id || '');
     const body = getBody(msg);
 
     /* ─────────────────────────────
-       👥 GRUPO ADMINS
+       👤 NORMALIZADO FINAL
     ───────────────────────────── */
-    let groupAdmins = [];
-    if (fromGroup) {
-      try {
-        groupAdmins = await getGroupAdmins(sock, remoteJid);
-      } catch {}
-    }
+    const senderNumber = normalize(sender);
+    const ownerNumbers = (config.owner || []).map(normalize);
 
-    const role = getRole(sender, groupAdmins, botJid);
-
-    const isOwner = role === 'owner';
-    const isAdmin = role === 'admin';
+    const isOwner = ownerNumbers.includes(senderNumber);
 
     /* ─────────────────────────────
-       📦 DEBUG
+       🧠 OWNER DEBUG PRO
     ───────────────────────────── */
     if (config.debug) {
-      console.log(chalk.gray('\n── DEBUG ROLE ──'));
-      console.log({
-        sender,
-        role,
-        owners: config.owner
-      });
+      let reason = 'OK';
+
+      if (!sender) {
+        reason = '❌ sender undefined';
+      } else if (!senderNumber) {
+        reason = '❌ senderNumber vacío';
+      } else if (!ownerNumbers.length) {
+        reason = '❌ config.owner vacío';
+      } else if (!ownerNumbers.includes(senderNumber)) {
+        reason = '❌ NO coincide con owner';
+      }
+
+      console.log(chalk.yellow('\n╔════ OWNER DEBUG PRO ════╗'));
+      console.log('RAW SENDER   :', sender);
+      console.log('CLEAN SENDER :', senderNumber);
+      console.log('OWNERS       :', ownerNumbers);
+      console.log('IS OWNER     :', isOwner);
+      console.log('REASON       :', reason);
+      console.log('╚═════════════════════════\n');
     }
 
     /* ─────────────────────────────
-       🧩 ONMESSAGE (COMPATIBLE)
+       🧩 ONMESSAGE PLUGINS
     ───────────────────────────── */
-    if (global.messagePlugins?.length) {
-      for (const plugin of global.messagePlugins) {
-        try {
-          await plugin.onMessage?.({
-            sock,
-            msg,
-            sender,
-            remoteJid,
-            body,
-            isOwner,
-            isAdmin,
-            role,
-            reply: (t) =>
-              sock.sendMessage(remoteJid, { text: String(t) }, { quoted: msg })
-          });
-        } catch (e) {
-          console.log(chalk.red('❌ onMessage error:'), e.message);
-        }
+    for (const plugin of messagePlugins) {
+      try {
+        await plugin.onMessage?.({
+          sock,
+          msg,
+          sender: senderNumber,
+          remoteJid,
+          body,
+          isOwner,
+          reply: (t) =>
+            sock.sendMessage(remoteJid, { text: String(t) }, { quoted: msg })
+        });
+      } catch (e) {
+        console.log(chalk.red('onMessage error:'), e.message);
       }
     }
 
@@ -121,16 +152,15 @@ async function messageHandler(sock, msg, store = {}) {
     const args = parsed.body.trim().split(/\s+/);
     const command = args.shift()?.toLowerCase();
 
-    if (!command) return;
-
-    const plugin = global.plugins?.get(command);
+    const plugin = plugins.get(command);
     if (!plugin) return;
 
     /* ─────────────────────────────
-       🚫 BAN CHECK (OWNER BYPASS)
+       🚫 BAN CHECK
     ───────────────────────────── */
     if (!isOwner) {
-      const banned = await db.isBanned(sender);
+      const banned = await db.isBanned(senderNumber);
+
       if (banned) {
         return sock.sendMessage(remoteJid, {
           text: '🚫 Estás baneado del bot'
@@ -139,30 +169,20 @@ async function messageHandler(sock, msg, store = {}) {
     }
 
     /* ─────────────────────────────
-       ⚡ EXECUTE PLUGIN (COMPATIBLE)
+       🚀 EXECUTE
     ───────────────────────────── */
     await plugin.execute?.({
       sock,
       msg,
-      key,
+      sender: senderNumber,
       remoteJid,
-      sender,
       body,
       args,
       command,
-      role,
       isOwner,
-      isAdmin,
-      store,
-      config,
-      db,
       reply: (t) =>
         sock.sendMessage(remoteJid, { text: String(t) }, { quoted: msg })
     });
-
-    if (config.debug) {
-      console.log(chalk.green(`✔ ${command} ejecutado | role: ${role}`));
-    }
 
   } catch (err) {
     console.log(chalk.red('❌ Handler error:'), err.message);
@@ -170,5 +190,8 @@ async function messageHandler(sock, msg, store = {}) {
 }
 
 module.exports = {
-  messageHandler
+  messageHandler,
+  loadPlugins,
+  plugins,
+  messagePlugins
 };
