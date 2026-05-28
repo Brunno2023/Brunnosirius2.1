@@ -333,9 +333,7 @@ async function messageHandler(sock, msg, store = {}) {
       : [];
 
     const senderNumber = cleanNumber(sender);
-    const senderJid = String(sender)
-  .replace(/:\d+/g, '')
-  .toLowerCase();
+    const senderJid = String(sender).replace(/:\d+/g, '').toLowerCase();
     const remoteNumber = cleanNumber(remoteJid);
     const participantNumber = cleanNumber(key.participant || '');
     const realNumber = cleanNumber(msg.realNumber || '');
@@ -344,6 +342,7 @@ async function messageHandler(sock, msg, store = {}) {
       fromMe ||
       ownerNumbers.includes(senderNumber) ||
       ownerNumbers.includes(remoteNumber) ||
+      ownerNumbers.includes(senderJid) ||
       ownerNumbers.includes(participantNumber) ||
       ownerNumbers.includes(realNumber);
 
