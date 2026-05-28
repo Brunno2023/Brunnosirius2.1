@@ -1,538 +1,174 @@
 'use strict';
 
-const path = require('path');
-const fs = require('fs');
 const chalk = require('chalk');
-
 const config = require('./config');
 const db = require('./lib/database');
 
 const {
   getBody,
-  normalizeJid,
   detectPrefix,
   getGroupAdmins
 } = require('./lib/utils');
 
-function cleanNumber(jid = '') {
-  return String(jid)
-    .replace(/:\d+/g, '')
-    .replace(/@.+/g, '')
-    .replace(/\D/g, '');
-}
-
-const originalConsoleLog = console.log;
-const originalConsoleError = console.error;
-const originalConsoleWarn = console.warn;
-
-function shouldHideConsole(args = []) {
-  const text = args.map(v => {
-    try {
-      if (typeof v === 'object') return JSON.stringify(v);
-      return String(v);
-    } catch {
-      return String(v);
-    }
-  }).join(' ');
-
-  const blocked = [
-    'Closing session',
-    'Closing stale open session',
-    'Closing open session',
-    'SessionEntry',
-    '_chains',
-    'Removing old closed session',
-    'chainKey',
-    'ephemeralKeyPair',
-    'rootKey',
-    'indexInfo',
-    'registrationId',
-    'currentRatchet',
-    'pendingPreKey',
-    'messageKeys',
-    'remoteIdentityKey'
-  ];
-
-  return blocked.some(word => text.includes(word));
-}
-
-console.log = (...args) => {
-  if (shouldHideConsole(args)) return;
-  originalConsoleLog(...args);
-};
-
-console.error = (...args) => {
-  if (shouldHideConsole(args)) return;
-  originalConsoleError(...args);
-};
-
-console.warn = (...args) => {
-  if (shouldHideConsole(args)) return;
-  originalConsoleWarn(...args);
-};
-
-function attachSendLogger(sock) {
-  if (sock._loggerAttached) return;
-  sock._loggerAttached = true;
-
-  const originalSend = sock.sendMessage.bind(sock);
-
-  sock.sendMessage = async (jid, content = {}, options = {}) => {
-    try {
-      if (config.debug) {
-        let type = 'Desconocido';
-        let preview = '';
-
-        if (content.text) {
-          type = 'Texto';
-          preview = content.text;
-        } else if (content.image) {
-          type = 'Imagen';
-          preview = content.caption || '[Imagen]';
-        } else if (content.video) {
-          type = 'Video';
-          preview = content.caption || '[Video]';
-        } else if (content.audio) {
-          type = content.ptt ? 'Nota de voz' : 'Audio';
-          preview = '[Audio]';
-        } else if (content.sticker) {
-          type = 'Sticker';
-          preview = '[Sticker]';
-        } else if (content.document) {
-          type = 'Documento';
-          preview = content.fileName || '[Documento]';
-        }
-
-        console.log(chalk.green('\n╔════════ BOT ENVÍA ════════'));
-        console.log(chalk.white('║ 📤 A    :'), chalk.cyan(jid));
-        console.log(chalk.white('║ 📦 Tipo :'), chalk.yellow(type));
-        console.log(chalk.white('║ 💬 Msg  :'), chalk.green(String(preview).slice(0, 300)));
-        console.log(chalk.green('╚═══════════════════════════\n'));
-      }
-
-      return await originalSend(jid, content, options);
-    } catch (err) {
-      console.log(chalk.red('❌ Error enviando mensaje:'), err?.message || err);
-    }
-  };
-}
-
-function getPluginsDir() {
-  const plugin = path.join(process.cwd(), 'plugin');
-  const plugins = path.join(process.cwd(), 'plugins');
-
-  if (fs.existsSync(plugin)) return plugin;
-  if (fs.existsSync(plugins)) return plugins;
-
-  fs.mkdirSync(plugin, { recursive: true });
-  return plugin;
-}
-
-const PLUGINS_DIR = getPluginsDir();
-const plugins = new Map();
-const messagePlugins = [];
-
-function loadPlugins() {
-  plugins.clear();
-  messagePlugins.length = 0;
-
-  const files = fs
-    .readdirSync(PLUGINS_DIR)
-    .filter(file => file.endsWith('.js'));
-
-  let commandFiles = 0;
-  let eventFiles = 0;
-
-  for (const file of files) {
-    try {
-      const filepath = path.join(PLUGINS_DIR, file);
-
-      delete require.cache[require.resolve(filepath)];
-
-      const plugin = require(filepath);
-
-      if (!plugin) {
-        console.log(chalk.yellow(`⚠️ Plugin ignorado ${file}: vacío`));
-        continue;
-      }
-
-      if (typeof plugin.onMessage === 'function') {
-        messagePlugins.push({
-          ...plugin,
-          file
-        });
-        eventFiles++;
-      }
-
-      if (typeof plugin.execute === 'function') {
-        const commands = Array.isArray(plugin.commands) ? plugin.commands : [];
-
-        if (!commands.length) {
-          console.log(chalk.yellow(`⚠️ Plugin comando ignorado ${file}: no tiene commands`));
-        } else {
-          for (const cmd of commands) {
-            plugins.set(String(cmd).toLowerCase(), {
-              ...plugin,
-              file
-            });
-          }
-
-          commandFiles++;
-        }
-      }
-
-      if (typeof plugin.execute !== 'function' && typeof plugin.onMessage !== 'function') {
-        console.log(chalk.yellow(`⚠️ Plugin ignorado ${file}: falta execute() u onMessage()`));
-      }
-
-    } catch (err) {
-      console.log(chalk.red(`❌ Error cargando plugin ${file}:`), err?.message || err);
-    }
-  }
-
-  console.log(chalk.green(`♻️ Plugins cargados: ${plugins.size} comandos en ${commandFiles} archivos`));
-  console.log(chalk.green(`🎧 Plugins onMessage cargados: ${messagePlugins.length} en ${eventFiles} archivos`));
-}
-
-global.loadPlugins = loadPlugins;
-loadPlugins();
-
-function cleanNumber(jid = '') {
-  return String(jid)
+/* ─────────────────────────────
+   👤 NORMALIZADOR ÚNICO (CRÍTICO)
+───────────────────────────── */
+const normalize = (jid = '') =>
+  String(jid)
     .split('@')[0]
     .split(':')[0]
     .replace(/\D/g, '');
+
+/* ─────────────────────────────
+   👑 ROLE SYSTEM SIMPLE
+───────────────────────────── */
+function getRole(sender, groupAdmins = [], botJid = '') {
+  const id = normalize(sender);
+
+  const owners = (config.owner || []).map(normalize);
+  const admins = groupAdmins.map(normalize);
+
+  if (owners.includes(id)) return 'owner';
+  if (admins.includes(id)) return 'admin';
+
+  return 'user';
 }
 
-function getReadableMessage(msg) {
-  const body = getBody(msg);
-  if (body) return body;
-
-  const m = msg.message || {};
-
-  if (m.imageMessage) return '[Imagen]';
-  if (m.videoMessage) return '[Video]';
-  if (m.stickerMessage) return '[Sticker]';
-  if (m.audioMessage) return m.audioMessage.ptt ? '[Nota de voz]' : '[Audio]';
-  if (m.documentMessage) return '[Documento]';
-  if (m.locationMessage) return '[Ubicación]';
-  if (m.contactMessage) return '[Contacto]';
-  if (m.contactsArrayMessage) return '[Contactos]';
-  if (m.reactionMessage) return '[Reacción]';
-
-  return '[Sin texto]';
-}
-
-async function safeGroupMetadata(sock, jid) {
-  try {
-    return await sock.groupMetadata(jid);
-  } catch {
-    return null;
-  }
-}
-
-// ⛓️ SISTEMA DE CÁRCEL
-const JAIL_PATH = path.join(process.cwd(), 'lib', 'jail.json');
-
-function msToTime(ms = 0) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m} min ${s} seg`;
-}
-
-function loadJailDB() {
-  try {
-    if (!fs.existsSync(JAIL_PATH)) {
-      return { jailed: {}, fame: {} };
-    }
-
-    return JSON.parse(fs.readFileSync(JAIL_PATH, 'utf8') || '{}');
-  } catch {
-    return { jailed: {}, fame: {} };
-  }
-}
-
-function saveJailDB(data) {
-  try {
-    const dir = path.dirname(JAIL_PATH);
-
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-
-    fs.writeFileSync(JAIL_PATH, JSON.stringify(data, null, 2));
-  } catch {}
-}
-
-function checkJail(jid) {
-  const data = loadJailDB();
-
-  data.jailed = data.jailed || {};
-
-  const clean = String(jid || '').split(':')[0];
-  const jail = data.jailed[clean];
-
-  if (!jail) return null;
-
-  if (Number(jail.until || 0) <= Date.now()) {
-    delete data.jailed[clean];
-    saveJailDB(data);
-    return null;
-  }
-
-  return jail;
-}
-
+/* ─────────────────────────────
+   MAIN HANDLER
+───────────────────────────── */
 async function messageHandler(sock, msg, store = {}) {
   try {
-    attachSendLogger(sock);
-
     if (!msg?.message) return;
 
     const key = msg.key || {};
     const remoteJid = key.remoteJid;
+    if (!remoteJid || remoteJid === 'status@broadcast') return;
 
-    if (!remoteJid) return;
-    if (remoteJid === 'status@broadcast') return;
-
-    const fromMe = !!key.fromMe;
     const fromGroup = remoteJid.endsWith('@g.us');
 
+    /* ─────────────────────────────
+       👤 SENDER UNIFICADO
+    ───────────────────────────── */
     let sender = fromGroup
-  ? key.participant || remoteJid
-  : key.remoteJid || remoteJid;
+      ? key.participant || remoteJid
+      : key.remoteJid;
 
-sender = normalizeJid(sender);
-    const botJid = normalizeJid(sock.user?.id || '');
+    sender = normalize(sender);
+
+    const botJid = normalize(sock.user?.id || '');
     const body = getBody(msg);
-    const displayMsg = getReadableMessage(msg);
 
-    const pushName =
-      msg.pushName ||
-      store.contacts?.[sender]?.name ||
-      store.contacts?.[sender]?.notify ||
-      'Sin nombre';
-
-    const number = cleanNumber(sender);
-    const userKey = number;
-
-    let groupMetadata = null;
+    /* ─────────────────────────────
+       👥 GRUPO ADMINS
+    ───────────────────────────── */
     let groupAdmins = [];
-    let isAdmin = false;
-    let isBotAdmin = false;
-
-    let chatName = 'Chat Privado';
-    let chatLabel = chalk.blue('PRIVADO');
-
     if (fromGroup) {
-      chatLabel = chalk.magenta('GRUPO');
-      groupMetadata = await safeGroupMetadata(sock, remoteJid);
-      chatName = groupMetadata?.subject || 'Grupo';
-
       try {
         groupAdmins = await getGroupAdmins(sock, remoteJid);
-        isAdmin = groupAdmins.includes(sender);
-        isBotAdmin = groupAdmins.includes(botJid);
       } catch {}
     }
 
-    // ─────────────────────────────────────
-// 👑 OWNER SYSTEM FIXED
-// ─────────────────────────────────────
+    const role = getRole(sender, groupAdmins, botJid);
 
-const normalize = (n = '') =>
-  String(n)
-    .split('@')[0]
-    .replace(/[^0-9]/g, '');
+    const isOwner = role === 'owner';
+    const isAdmin = role === 'admin';
 
-const senderNumber = normalize(sender);
-
-// normalizar lista de owners del config
-const ownerNumbers = (config.owner || []).map(normalize);
-
-// check real owner
-const isOwner = ownerNumbers.includes(senderNumber);
-
-// debug
-console.log("DEBUG OWNER:", {
-  sender,
-  senderNumber,
-  ownerNumbers,
-  isOwner,
-  fromMe
-});
-
+    /* ─────────────────────────────
+       📦 DEBUG
+    ───────────────────────────── */
     if (config.debug) {
-      console.log(chalk.gray('\n╔══════════════════════════════'));
-      console.log(chalk.white('║ 📍 Tipo   :'), chatLabel);
-      console.log(chalk.white('║ 🏷️ Chat   :'), chalk.cyan(chatName));
-      console.log(chalk.white('║ 👤 Nombre :'), chalk.green(pushName));
-      console.log(chalk.white('║ 📞 Número :'), chalk.yellow(number ? `+${number}` : 'Desconocido'));
-      console.log(chalk.white('║ 👑 Owner  :'), chalk.yellow(isOwner ? 'Sí' : 'No'));
-      console.log(chalk.white('║ 💬 Msg    :'), chalk.white(String(displayMsg).slice(0, 300)));
-      console.log(chalk.gray('╚══════════════════════════════\n'));
+      console.log(chalk.gray('\n── DEBUG ROLE ──'));
+      console.log({
+        sender,
+        role,
+        owners: config.owner
+      });
     }
 
-    // 🔥 Ejecutar plugins onMessage aunque no sea comando
-    if (messagePlugins.length) {
-      for (const plugin of messagePlugins) {
+    /* ─────────────────────────────
+       🧩 ONMESSAGE (COMPATIBLE)
+    ───────────────────────────── */
+    if (global.messagePlugins?.length) {
+      for (const plugin of global.messagePlugins) {
         try {
-          await plugin.onMessage({
+          await plugin.onMessage?.({
             sock,
             msg,
-            key,
-            remoteJid,
             sender,
-            botJid,
-            pushName,
+            remoteJid,
             body,
-            store,
-            config,
-            db,
-
-            fromMe,
-            fromGroup,
             isOwner,
             isAdmin,
-            isBotAdmin,
-            groupMetadata,
-            groupAdmins,
-
-            reply: text => sock.sendMessage(
-              remoteJid,
-              { text: String(text) },
-              { quoted: msg }
-            )
+            role,
+            reply: (t) =>
+              sock.sendMessage(remoteJid, { text: String(t) }, { quoted: msg })
           });
         } catch (e) {
-          console.log(chalk.red(`❌ Error en onMessage ${plugin.file}:`), e?.message || e);
+          console.log(chalk.red('❌ onMessage error:'), e.message);
         }
       }
     }
 
     if (!body) return;
 
+    /* ─────────────────────────────
+       ⚡ COMMAND PARSER
+    ───────────────────────────── */
     const parsed = detectPrefix(body, config.prefix);
     if (!parsed) return;
 
-    const args = parsed.body.trim().split(/\s+/).filter(Boolean);
+    const args = parsed.body.trim().split(/\s+/);
     const command = args.shift()?.toLowerCase();
 
     if (!command) return;
 
-    const plugin = plugins.get(command);
+    const plugin = global.plugins?.get(command);
     if (!plugin) return;
 
-    // 🚫 BLOQUEAR USUARIOS BANEADOS
+    /* ─────────────────────────────
+       🚫 BAN CHECK (OWNER BYPASS)
+    ───────────────────────────── */
     if (!isOwner) {
       const banned = await db.isBanned(sender);
-
       if (banned) {
         return sock.sendMessage(remoteJid, {
-          text: '🚫 Estás baneado del bot.\n\nNo puedes usar comandos.'
+          text: '🚫 Estás baneado del bot'
         }, { quoted: msg });
       }
     }
 
-    // ⛓️ BLOQUEAR COMANDOS SI ESTÁ ARRESTADO
-    const jail = checkJail(sender);
-
-    if (jail && !isOwner && !['sobornar', 'fianza', 'usar', 'llave', 'inventario'].includes(command)) {
-      return sock.sendMessage(remoteJid, {
-        text:
-`⛓️ *ESTÁS ARRESTADO*
-
-No puedes usar comandos del bot por ahora.
-
-⏳ Tiempo restante: *${msToTime(jail.until - Date.now())}*
-💸 Usa *.sobornar* para intentar salir antes.`
-      }, { quoted: msg });
-    }
-
-    if (!isOwner) {
-      if (fromGroup) {
-        const groupData = await db.getGroup(remoteJid);
-
-        if (groupData.bot === false && !['enable', 'menu', 'help'].includes(command)) {
-          return;
-        }
-      } else {
-        const userData = await db.getUser(userKey);
-
-        if (userData.bot === false && !['enable', 'menu', 'help'].includes(command)) {
-          return;
-        }
-      }
-    }
+    /* ─────────────────────────────
+       ⚡ EXECUTE PLUGIN (COMPATIBLE)
+    ───────────────────────────── */
+    await plugin.execute?.({
+      sock,
+      msg,
+      key,
+      remoteJid,
+      sender,
+      body,
+      args,
+      command,
+      role,
+      isOwner,
+      isAdmin,
+      store,
+      config,
+      db,
+      reply: (t) =>
+        sock.sendMessage(remoteJid, { text: String(t) }, { quoted: msg })
+    });
 
     if (config.debug) {
-      console.log(chalk.yellow(`⚡ Ejecutando comando: ${command}`));
-    }
-
-    try {
-      await plugin.execute({
-        sock,
-        msg,
-        key,
-        remoteJid,
-        sender,
-        botJid,
-        pushName,
-        body,
-        args,
-        command,
-        store,
-        config,
-        db,
-
-        fromMe,
-        fromGroup,
-        isOwner,
-        isAdmin,
-        isBotAdmin,
-        groupMetadata,
-        groupAdmins,
-
-        reply: text => sock.sendMessage(
-          remoteJid,
-          { text: String(text) },
-          { quoted: msg }
-        )
-      });
-
-      if (config.debug) {
-        console.log(chalk.green(`✅ Comando ejecutado correctamente: ${command}`));
-      }
-
-      try {
-        await db.addXP(sender, Math.floor(Math.random() * 16) + 5);
-      } catch (e) {
-        console.log(chalk.yellow('⚠️ No se pudo guardar XP:'), e?.message || e);
-      }
-
-    } catch (e) {
-      console.log(chalk.red(`❌ Error en comando ${command}:`));
-      console.log(e?.stack || e);
-
-      try {
-        await sock.sendMessage(
-          remoteJid,
-          { text: '❌ Ocurrió un error ejecutando este comando.' },
-          { quoted: msg }
-        );
-      } catch {}
+      console.log(chalk.green(`✔ ${command} ejecutado | role: ${role}`));
     }
 
   } catch (err) {
-    console.log(chalk.red('❌ Error en handler:'));
-    console.log(err?.stack || err);
+    console.log(chalk.red('❌ Handler error:'), err.message);
   }
 }
 
 module.exports = {
-  messageHandler,
-  loadPlugins,
-  plugins,
-  messagePlugins
+  messageHandler
 };
