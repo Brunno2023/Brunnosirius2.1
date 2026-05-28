@@ -329,23 +329,12 @@ sender = normalizeJid(sender);
       } catch {}
     }
 
-    const ownerNumbers = Array.isArray(config.owner)
-      ? config.owner.map(n => String(n).replace(/\D/g, ''))
-      : [];
-
     const senderNumber = cleanNumber(sender);
-    const senderJid = String(sender).replace(/:\d+/g, '').toLowerCase();
-    const remoteNumber = cleanNumber(remoteJid);
-    const participantNumber = cleanNumber(key.participant || '');
-    const realNumber = cleanNumber(msg.realNumber || '');
+const ownerNumbers = config.owner.map(n => cleanNumber(n));
 
-    const isOwner =
-      fromMe ||
-      ownerNumbers.includes(senderNumber) ||
-      ownerNumbers.includes(remoteNumber) ||
-      ownerNumbers.includes(senderJid) ||
-      ownerNumbers.includes(participantNumber) ||
-      ownerNumbers.includes(realNumber);
+const isOwner =
+  fromMe ||
+  ownerNumbers.includes(senderNumber);
 
     if (config.debug) {
       console.log(chalk.gray('\n╔══════════════════════════════'));
