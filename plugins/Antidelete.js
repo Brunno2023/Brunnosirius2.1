@@ -1,386 +1,444 @@
 'use strict';
 
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const path = require('path');
+const fs = require('fs');
+const chalk = require('chalk');
 
-const deletedCache = new Map();
+const config = require('./config');
+const db = require('./lib/database');
 
-const MAX_CACHE = 1000;
-const CACHE_TIME = 2 * 60 * 60 * 1000;
+const {
+  getBody,
+  detectPrefix
+} = require('./lib/utils');
 
-function cleanJid(jid = '') {
-  return String(jid).split(':')[0];
-}
+/* ─────────────────────────────
+   👤 NORMALIZE
+───────────────────────────── */
+function normalize(jid = '') {
 
-function number(jid = '') {
-  return cleanJid(jid)
-    .split('@')[0]
+  return String(jid)
+    .replace(/@lid/g, '')
+    .replace(/@s\.whatsapp\.net/g, '')
+    .replace(/@g\.us/g, '')
+    .split(':')[0]
     .replace(/\D/g, '');
 }
 
-function getMsgKey(remoteJid, id) {
-  return `${remoteJid}:${id}`;
-}
+/* ─────────────────────────────
+   📦 PLUGINS
+───────────────────────────── */
+const plugins = new Map();
+const messagePlugins = [];
 
-function isDeleteMessage(msg) {
-  const protocol = msg.message?.protocolMessage;
+function loadPlugins() {
 
-  if (!protocol) return false;
-
-  return (
-    protocol.type === 0 ||
-    protocol.type === 'REVOKE' ||
-    protocol.key?.id
+  const dir = path.join(
+    process.cwd(),
+    'plugins'
   );
-}
 
-function getDeletedKey(msg) {
-  return msg.message?.protocolMessage?.key || null;
-}
+  const files = fs
+    .readdirSync(dir)
+    .filter(f => f.endsWith('.js'));
 
-function unwrapMessage(message = {}) {
-  if (message.ephemeralMessage?.message) {
-    return unwrapMessage(message.ephemeralMessage.message);
-  }
+  plugins.clear();
+  messagePlugins.length = 0;
 
-  if (message.documentWithCaptionMessage?.message) {
-    return unwrapMessage(message.documentWithCaptionMessage.message);
-  }
+  for (const file of files) {
 
-  return message;
-}
+    try {
 
-function getText(message = {}) {
-  return (
-    message.conversation ||
-    message.extendedTextMessage?.text ||
-    message.imageMessage?.caption ||
-    message.videoMessage?.caption ||
-    message.documentMessage?.caption ||
-    ''
-  );
-}
+      const filepath = path.join(
+        dir,
+        file
+      );
 
-function isViewOnce(message = {}) {
-  return (
-    message.viewOnceMessage ||
-    message.viewOnceMessageV2 ||
-    message.viewOnceMessageV2Extension ||
-    message.imageMessage?.viewOnce === true ||
-    message.videoMessage?.viewOnce === true
-  );
-}
+      delete require.cache[
+        require.resolve(filepath)
+      ];
 
-function getMediaInfo(message = {}) {
-  if (message.imageMessage) {
-    return {
-      type: 'image',
-      mediaType: 'image',
-      media: message.imageMessage,
-      mimetype: message.imageMessage.mimetype || 'image/jpeg',
-      caption: message.imageMessage.caption || ''
-    };
-  }
+      const plugin = require(filepath);
 
-  if (message.videoMessage) {
-    return {
-      type: 'video',
-      mediaType: 'video',
-      media: message.videoMessage,
-      mimetype: message.videoMessage.mimetype || 'video/mp4',
-      caption: message.videoMessage.caption || ''
-    };
-  }
+      /* onMessage */
+      if (
+        typeof plugin.onMessage ===
+        'function'
+      ) {
 
-  if (message.audioMessage) {
-    return {
-      type: 'audio',
-      mediaType: 'audio',
-      media: message.audioMessage,
-      mimetype: message.audioMessage.mimetype || 'audio/mpeg',
-      ptt: message.audioMessage.ptt || false
-    };
-  }
+        messagePlugins.push({
+          ...plugin,
+          file
+        });
+      }
 
-  if (message.stickerMessage) {
-    return {
-      type: 'sticker',
-      mediaType: 'sticker',
-      media: message.stickerMessage,
-      mimetype: message.stickerMessage.mimetype || 'image/webp'
-    };
-  }
+      /* execute */
+      if (
+        typeof plugin.execute ===
+        'function'
+      ) {
 
-  if (message.documentMessage) {
-    return {
-      type: 'document',
-      mediaType: 'document',
-      media: message.documentMessage,
-      mimetype: message.documentMessage.mimetype || 'application/octet-stream',
-      fileName: message.documentMessage.fileName || 'archivo',
-      caption: message.documentMessage.caption || ''
-    };
-  }
+        const cmds =
+          plugin.commands || [];
 
-  return null;
-}
+        for (const cmd of cmds) {
 
-async function streamToBuffer(stream) {
-  let buffer = Buffer.from([]);
+          plugins.set(
+            cmd.toLowerCase(),
+            plugin
+          );
+        }
+      }
 
-  for await (const chunk of stream) {
-    buffer = Buffer.concat([buffer, chunk]);
-  }
+    } catch (e) {
 
-  return buffer;
-}
-
-function saveMessage(msg, remoteJid, sender, pushName) {
-  const id = msg.key?.id;
-
-  if (!id || !msg.message) return;
-  if (isDeleteMessage(msg)) return;
-
-  const message = unwrapMessage(msg.message);
-
-  if (isViewOnce(message)) return;
-
-  const key = getMsgKey(remoteJid, id);
-
-  deletedCache.set(key, {
-    remoteJid,
-    sender: cleanJid(sender),
-    pushName: pushName || 'Usuario',
-    message,
-    time: Date.now()
-  });
-
-  if (deletedCache.size > MAX_CACHE) {
-    const first = deletedCache.keys().next().value;
-    deletedCache.delete(first);
-  }
-}
-
-function cleanOldCache() {
-  const now = Date.now();
-
-  for (const [key, value] of deletedCache.entries()) {
-    if (now - value.time > CACHE_TIME) {
-      deletedCache.delete(key);
+      console.log(
+        chalk.red(
+          `❌ Plugin error ${file}:`
+        ),
+        e
+      );
     }
   }
+
+  console.log(
+    chalk.green(
+      `✔ Plugins cargados: ${plugins.size}`
+    )
+  );
 }
 
-async function isEnabled(db, remoteJid, fromGroup) {
-  try {
-    // ✅ En privado siempre activo
-    if (!fromGroup) return true;
+global.loadPlugins = loadPlugins;
 
-    // ✅ En grupos depende de configuración
-    const value = await db.getGroupSetting(remoteJid, 'antidelete');
-    return value === true;
-  } catch {
-    return !fromGroup;
+loadPlugins();
+
+/* ─────────────────────────────
+   🚀 MAIN HANDLER
+───────────────────────────── */
+async function messageHandler(
+  sock,
+  msg,
+  store = {}
+) {
+
+  try {
+
+    if (!msg?.message) return;
+
+    const key =
+      msg.key || {};
+
+    const remoteJid =
+      key.remoteJid;
+
+    if (
+      !remoteJid ||
+      remoteJid ===
+      'status@broadcast'
+    ) return;
+
+    const fromGroup =
+      remoteJid.endsWith('@g.us');
+
+    /* ─────────────────────────────
+       👤 SENDER
+    ───────────────────────────── */
+
+    let sender;
+
+    if (fromGroup) {
+
+      sender =
+        key.participantPn ||
+        key.participantAlt ||
+        key.participant ||
+        msg.participant ||
+        remoteJid;
+
+    } else {
+
+      sender =
+        key.remoteJidAlt ||
+        key.remoteJid;
+    }
+
+    const body =
+      getBody(msg);
+
+    /* ─────────────────────────────
+       👑 OWNER FIX
+    ───────────────────────────── */
+
+    const senderNumber =
+      normalize(sender);
+
+    const ownerNumbers =
+      (config.owner || [])
+      .map(normalize);
+
+    const botNumber =
+      normalize(sock.user?.id);
+
+    const isOwner =
+
+      key.fromMe ||
+
+      ownerNumbers.includes(
+        senderNumber
+      ) ||
+
+      senderNumber === botNumber;
+
+    /* ─────────────────────────────
+       🧠 DEBUG
+    ───────────────────────────── */
+
+    if (config.debug) {
+
+      console.log(
+        chalk.yellow(
+          '\n╔════ OWNER DEBUG ════╗'
+        )
+      );
+
+      console.log(
+        'sender            :',
+        sender
+      );
+
+      console.log(
+        'senderNumber      :',
+        senderNumber
+      );
+
+      console.log(
+        'botNumber         :',
+        botNumber
+      );
+
+      console.log(
+        'ownerNumbers      :',
+        ownerNumbers
+      );
+
+      console.log(
+        'isOwner           :',
+        isOwner
+      );
+
+      console.log(
+        'fromMe            :',
+        key.fromMe
+      );
+
+      console.log(
+        '\n📦 RAW'
+      );
+
+      console.log(
+        'participant        :',
+        key.participant
+      );
+
+      console.log(
+        'participantAlt     :',
+        key.participantAlt
+      );
+
+      console.log(
+        'participantPn      :',
+        key.participantPn
+      );
+
+      console.log(
+        'remoteJid          :',
+        key.remoteJid
+      );
+
+      console.log(
+        'remoteJidAlt       :',
+        key.remoteJidAlt
+      );
+
+      console.log(
+        'sock.user          :',
+        sock.user
+      );
+
+      console.log(
+        '╚══════════════════╝\n'
+      );
+    }
+
+    /* ─────────────────────────────
+       🧩 ON MESSAGE
+    ───────────────────────────── */
+
+    for (const plugin of messagePlugins) {
+
+      try {
+
+        await plugin.onMessage?.({
+
+          sock,
+          msg,
+
+          sender:
+            senderNumber,
+
+          remoteJid,
+
+          body,
+
+          fromGroup,
+
+          db,
+
+          isAdmin: false,
+
+          isOwner,
+
+          pushName:
+            msg.pushName ||
+            msg.push_name ||
+            'Usuario',
+
+          reply: (t) =>
+            sock.sendMessage(
+              remoteJid,
+              {
+                text: String(t)
+              },
+              {
+                quoted: msg
+              }
+            )
+        });
+
+      } catch (e) {
+
+        console.log(
+          chalk.red(
+            '❌ onMessage error:'
+          ),
+          e
+        );
+      }
+    }
+
+    if (!body) return;
+
+    /* ─────────────────────────────
+       ⚡ PREFIX
+    ───────────────────────────── */
+
+    const parsed =
+      detectPrefix(
+        body,
+        config.prefix
+      );
+
+    if (!parsed) return;
+
+    const args =
+      parsed.body
+      .trim()
+      .split(/\s+/);
+
+    const command =
+      args.shift()
+      ?.toLowerCase();
+
+    const plugin =
+      plugins.get(command);
+
+    if (!plugin) return;
+
+    /* ─────────────────────────────
+       🚫 BAN CHECK
+    ───────────────────────────── */
+
+    if (!isOwner) {
+
+      const banned =
+        await db.isBanned(
+          senderNumber
+        );
+
+      if (banned) {
+
+        return sock.sendMessage(
+          remoteJid,
+          {
+            text:
+              '🚫 Estás baneado del bot'
+          },
+          {
+            quoted: msg
+          }
+        );
+      }
+    }
+
+    /* ─────────────────────────────
+       🚀 EXECUTE
+    ───────────────────────────── */
+
+    await plugin.execute?.({
+
+      sock,
+      msg,
+
+      sender:
+        senderNumber,
+
+      remoteJid,
+
+      body,
+
+      args,
+
+      command,
+
+      fromGroup,
+
+      db,
+
+      isAdmin: false,
+
+      isOwner,
+
+      pushName:
+        msg.pushName ||
+        msg.push_name ||
+        'Usuario',
+
+      reply: (t) =>
+        sock.sendMessage(
+          remoteJid,
+          {
+            text: String(t)
+          },
+          {
+            quoted: msg
+          }
+        )
+    });
+
+  } catch (err) {
+
+    console.log(
+      chalk.red(
+        '❌ Handler error:'
+      ),
+      err
+    );
   }
 }
 
 module.exports = {
-  commands: ['antidelete', 'antiborrar'],
-
-  async onMessage(ctx) {
-    const {
-      sock,
-      msg,
-      remoteJid,
-      sender,
-      pushName,
-      fromGroup,
-      db
-    } = ctx;
-
-    try {
-      cleanOldCache();
-
-      // ✅ Ahora guarda mensajes tanto en grupos como en privado
-      if (!isDeleteMessage(msg)) {
-        saveMessage(msg, remoteJid, sender, pushName);
-        return;
-      }
-
-      const enabled = await isEnabled(db, remoteJid, fromGroup);
-      if (!enabled) return;
-
-      const deletedKey = getDeletedKey(msg);
-      const deletedId = deletedKey?.id;
-
-      if (!deletedId) return;
-
-      const cacheKey = getMsgKey(remoteJid, deletedId);
-      const saved = deletedCache.get(cacheKey);
-
-      if (!saved) return;
-
-      const user = saved.sender;
-      const text = getText(saved.message);
-      const media = getMediaInfo(saved.message);
-
-      if (!media) {
-        if (!text) return;
-
-        await sock.sendMessage(remoteJid, {
-          text:
-`🕵️ *MENSAJE ELIMINADO*
-
-👤 Usuario: @${number(user)}
-
-💬 Mensaje:
-${text}`,
-          mentions: [user]
-        });
-
-        deletedCache.delete(cacheKey);
-        return;
-      }
-
-      const stream = await downloadContentFromMessage(
-        media.media,
-        media.mediaType
-      );
-
-      const buffer = await streamToBuffer(stream);
-
-      if (!buffer || !buffer.length) return;
-
-      const caption =
-`🕵️ *MENSAJE ELIMINADO*
-
-👤 Usuario: @${number(user)}${media.caption ? `\n\n💬 Caption:\n${media.caption}` : ''}`;
-
-      if (media.type === 'image') {
-        await sock.sendMessage(remoteJid, {
-          image: buffer,
-          mimetype: media.mimetype,
-          caption,
-          mentions: [user]
-        });
-      }
-
-      if (media.type === 'video') {
-        await sock.sendMessage(remoteJid, {
-          video: buffer,
-          mimetype: media.mimetype,
-          caption,
-          mentions: [user]
-        });
-      }
-
-      if (media.type === 'audio') {
-        await sock.sendMessage(remoteJid, {
-          audio: buffer,
-          mimetype: media.mimetype,
-          ptt: media.ptt || false
-        });
-
-        await sock.sendMessage(remoteJid, {
-          text: caption,
-          mentions: [user]
-        });
-      }
-
-      if (media.type === 'sticker') {
-        await sock.sendMessage(remoteJid, {
-          sticker: buffer
-        });
-
-        await sock.sendMessage(remoteJid, {
-          text: caption,
-          mentions: [user]
-        });
-      }
-
-      if (media.type === 'document') {
-        await sock.sendMessage(remoteJid, {
-          document: buffer,
-          mimetype: media.mimetype,
-          fileName: media.fileName,
-          caption,
-          mentions: [user]
-        });
-      }
-
-      deletedCache.delete(cacheKey);
-
-    } catch (err) {
-      console.log('❌ Error en antidelete:', err?.message || err);
-    }
-  },
-
-  async execute(ctx) {
-    const {
-      sock,
-      msg,
-      remoteJid,
-      args,
-      fromGroup,
-      isAdmin,
-      isOwner,
-      db
-    } = ctx;
-
-    try {
-      // ✅ En privado siempre activo
-      if (!fromGroup) {
-        return sock.sendMessage(remoteJid, {
-          text: '✅ En chats privados, *antidelete* siempre está activo.'
-        }, { quoted: msg });
-      }
-
-      if (!isOwner && !isAdmin) {
-        return sock.sendMessage(remoteJid, {
-          text: '❌ Solo admins o owner pueden usar este comando.'
-        }, { quoted: msg });
-      }
-
-      const option = (args[0] || '').toLowerCase();
-
-      if (!option) {
-        const enabled = await isEnabled(db, remoteJid, fromGroup);
-
-        return sock.sendMessage(remoteJid, {
-          text:
-`🕵️ *ANTIDELETE*
-
-Estado: *${enabled ? 'Activado ✅' : 'Desactivado ❌'}*
-
-Uso:
-.antidelete on
-.antidelete off`
-        }, { quoted: msg });
-      }
-
-      if (!['on', 'off'].includes(option)) {
-        return sock.sendMessage(remoteJid, {
-          text: '❌ Usa:\n.antidelete on\n.antidelete off'
-        }, { quoted: msg });
-      }
-
-      await db.setGroupSetting(
-        remoteJid,
-        'antidelete',
-        option === 'on'
-      );
-
-      return sock.sendMessage(remoteJid, {
-        text: option === 'on'
-          ? '✅ Antidelete activado en este grupo.'
-          : '✅ Antidelete desactivado en este grupo.'
-      }, { quoted: msg });
-
-    } catch (err) {
-      console.log('❌ Error comando antidelete:', err?.message || err);
-
-      return sock.sendMessage(remoteJid, {
-        text: '❌ Error configurando antidelete.'
-      }, { quoted: msg });
-    }
-  }
+  messageHandler,
+  loadPlugins,
+  plugins,
+  messagePlugins
 };
