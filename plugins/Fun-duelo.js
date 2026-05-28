@@ -162,7 +162,7 @@ ${hpBlock(p1, hp1, p2, hp2)}
     mentions: [challenger, opponent]
   });
 
-  for (let round = 1; round <= 8 && hp1 > 0 && hp2 > 0; round++) {
+  while (hp1 > 0 && hp2 > 0) {
     await sleep(ATTACK_DELAY);
 
     const attacker = turn;
