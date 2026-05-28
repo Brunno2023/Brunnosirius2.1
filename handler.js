@@ -300,10 +300,10 @@ async function messageHandler(sock, msg, store = {}) {
     const fromGroup = remoteJid.endsWith('@g.us');
 
     let sender = fromGroup
-  ? key.participant
+  ? key.participant || remoteJid
   : key.remoteJid || remoteJid;
 
-sender = normalizeJid(sender || remoteJid);
+sender = normalizeJid(sender);
     const botJid = normalizeJid(sock.user?.id || '');
     const body = getBody(msg);
     const displayMsg = getReadableMessage(msg);
