@@ -348,6 +348,13 @@ const ownerNumbers = config.owner.map(n =>
 const isOwner =
   fromMe ||
   ownerNumbers.includes(senderNumber);
+    console.log("DEBUG OWNER:", {
+  sender,
+  senderNumber,
+  ownerNumbers,
+  isOwner,
+  fromMe
+});
 
     if (config.debug) {
       console.log(chalk.gray('\n╔══════════════════════════════'));
