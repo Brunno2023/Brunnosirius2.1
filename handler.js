@@ -13,9 +13,10 @@ const {
 } = require('./lib/utils');
 
 /* ─────────────────────────────
-   👤 NORMALIZADOR
+   👤 NORMALIZE
 ───────────────────────────── */
 function normalize(jid = '') {
+
   return String(jid)
     .split('@')[0]
     .split(':')[0]
@@ -69,7 +70,7 @@ function loadPlugins() {
         });
       }
 
-      /* commands */
+      /* execute */
       if (
         typeof plugin.execute ===
         'function'
@@ -138,7 +139,7 @@ async function messageHandler(
       remoteJid.endsWith('@g.us');
 
     /* ─────────────────────────────
-       👤 SENDER FIX LID
+       👤 SENDER
     ───────────────────────────── */
 
     let sender;
@@ -163,7 +164,7 @@ async function messageHandler(
       getBody(msg);
 
     /* ─────────────────────────────
-       👑 OWNER FIX DEFINITIVO
+       👑 OWNER FIX
     ───────────────────────────── */
 
     const senderNumber =
@@ -174,23 +175,28 @@ async function messageHandler(
       .map(normalize);
 
     /*
-      🔥 IMPORTANTE
+      número conectado del bot
+    */
 
-      WhatsApp ahora usa LID
-      y muchas veces participantPn
-      viene undefined.
+    const botNumber =
+      normalize(sock.user?.id);
 
-      Entonces usamos:
-      key.fromMe
-
-      si el mensaje es tuyo.
+    /*
+      OWNER si:
+      - fromMe
+      - sender está en config.owner
+      - sender es el mismo bot
     */
 
     const isOwner =
+
       key.fromMe ||
+
       ownerNumbers.includes(
         senderNumber
-      );
+      ) ||
+
+      senderNumber === botNumber;
 
     /* ─────────────────────────────
        🧠 DEBUG
@@ -212,6 +218,11 @@ async function messageHandler(
       console.log(
         'senderNumber      :',
         senderNumber
+      );
+
+      console.log(
+        'botNumber         :',
+        botNumber
       );
 
       console.log(
@@ -256,6 +267,11 @@ async function messageHandler(
       console.log(
         'remoteJidAlt       :',
         key.remoteJidAlt
+      );
+
+      console.log(
+        'sock.user          :',
+        sock.user
       );
 
       console.log(
@@ -311,7 +327,7 @@ async function messageHandler(
     if (!body) return;
 
     /* ─────────────────────────────
-       ⚡ PREFIX PARSER
+       ⚡ PREFIX
     ───────────────────────────── */
 
     const parsed =
