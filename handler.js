@@ -6,7 +6,6 @@ const chalk = require('chalk');
 
 const config = require('./config');
 const db = require('./lib/database');
-const isBanned = require('./lib/isBanned');
 
 const {
   getBody,
@@ -32,6 +31,7 @@ function shouldHideConsole(args = []) {
   const blocked = [
     'Closing session',
     'Closing stale open session',
+    'Closing open session',
     'SessionEntry',
     '_chains',
     'Removing old closed session',
@@ -224,6 +224,59 @@ async function safeGroupMetadata(sock, jid) {
   }
 }
 
+// ⛓️ SISTEMA DE CÁRCEL
+const JAIL_PATH = path.join(process.cwd(), 'lib', 'jail.json');
+
+function msToTime(ms = 0) {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m} min ${s} seg`;
+}
+
+function loadJailDB() {
+  try {
+    if (!fs.existsSync(JAIL_PATH)) {
+      return { jailed: {}, fame: {} };
+    }
+
+    return JSON.parse(fs.readFileSync(JAIL_PATH, 'utf8') || '{}');
+  } catch {
+    return { jailed: {}, fame: {} };
+  }
+}
+
+function saveJailDB(data) {
+  try {
+    const dir = path.dirname(JAIL_PATH);
+
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(JAIL_PATH, JSON.stringify(data, null, 2));
+  } catch {}
+}
+
+function checkJail(jid) {
+  const data = loadJailDB();
+
+  data.jailed = data.jailed || {};
+
+  const clean = String(jid || '').split(':')[0];
+  const jail = data.jailed[clean];
+
+  if (!jail) return null;
+
+  if (Number(jail.until || 0) <= Date.now()) {
+    delete data.jailed[clean];
+    saveJailDB(data);
+    return null;
+  }
+
+  return jail;
+}
+
 async function messageHandler(sock, msg, store = {}) {
   try {
     attachSendLogger(sock);
@@ -253,6 +306,7 @@ async function messageHandler(sock, msg, store = {}) {
       'Sin nombre';
 
     const number = cleanNumber(sender);
+    const userKey = number;
 
     let groupMetadata = null;
     let groupAdmins = [];
@@ -301,7 +355,8 @@ async function messageHandler(sock, msg, store = {}) {
       console.log(chalk.gray('╚══════════════════════════════\n'));
     }
 
-    if (body && messagePlugins.length) {
+    // 🔥 Ejecutar plugins onMessage aunque no sea comando
+    if (messagePlugins.length) {
       for (const plugin of messagePlugins) {
         try {
           await plugin.onMessage({
@@ -349,10 +404,31 @@ async function messageHandler(sock, msg, store = {}) {
 
     const plugin = plugins.get(command);
     if (!plugin) return;
-    if (await isBanned(remoteJid) && command !== 'unbanchat') {
-  return sock.sendMessage(remoteJid, {
-    text: '🚫 Este grupo está baneado'
-  }, { quoted: msg });
+
+    // 🚫 BLOQUEAR USUARIOS BANEADOS
+    if (!isOwner) {
+      const banned = await db.isBanned(sender);
+
+      if (banned) {
+        return sock.sendMessage(remoteJid, {
+          text: '🚫 Estás baneado del bot.\n\nNo puedes usar comandos.'
+        }, { quoted: msg });
+      }
+    }
+
+    // ⛓️ BLOQUEAR COMANDOS SI ESTÁ ARRESTADO
+    const jail = checkJail(sender);
+
+    if (jail && !isOwner && !['sobornar', 'fianza', 'usar', 'llave', 'inventario'].includes(command)) {
+      return sock.sendMessage(remoteJid, {
+        text:
+`⛓️ *ESTÁS ARRESTADO*
+
+No puedes usar comandos del bot por ahora.
+
+⏳ Tiempo restante: *${msToTime(jail.until - Date.now())}*
+💸 Usa *.sobornar* para intentar salir antes.`
+      }, { quoted: msg });
     }
 
     if (!isOwner) {
@@ -363,7 +439,7 @@ async function messageHandler(sock, msg, store = {}) {
           return;
         }
       } else {
-        const userData = await db.getUser(sender);
+        const userData = await db.getUser(userKey);
 
         if (userData.bot === false && !['enable', 'menu', 'help'].includes(command)) {
           return;
