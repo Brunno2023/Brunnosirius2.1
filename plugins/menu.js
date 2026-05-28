@@ -63,6 +63,7 @@ Menu audios: .menuaudios
 ➤ *${p}frase*
 ➤ *${p}historiaromantica*
 ➤ *${p}afk*
+➤ *${p}ver aceptar*
 
 ━━━━━━━━━━━━━━━━━━━
 🎮 *Juegos*
@@ -80,6 +81,7 @@ Menu audios: .menuaudios
 ➤ *${p}tiktok* → Video de TikTok
 ➤ *${p}fb* → Video de Facebook
 ➤ *${p}ig* → Video de Instagram
+➤ *${p}Spotify* → descarga album Spotify
 
 ━━━━━━━━━━━━━━━━━━━
 🎨 *MULTIMEDIA*
