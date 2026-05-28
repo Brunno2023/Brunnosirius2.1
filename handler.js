@@ -18,7 +18,9 @@ const {
 function normalize(jid = '') {
 
   return String(jid)
-    .split('@')[0]
+    .replace(/@lid/g, '')
+    .replace(/@s\.whatsapp\.net/g, '')
+    .replace(/@g\.us/g, '')
     .split(':')[0]
     .replace(/\D/g, '');
 }
