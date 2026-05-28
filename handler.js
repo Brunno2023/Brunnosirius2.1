@@ -338,7 +338,12 @@ sender = normalizeJid(sender || remoteJid);
     }
 
     const senderNumber = cleanNumber(sender);
-const ownerNumbers = config.owner.map(n => cleanNumber(n));
+const ownerNumbers = config.owner.map(n =>
+  String(n)
+    .replace(/:\d+/g, '')
+    .replace(/@.+/g, '')
+    .replace(/\D/g, '')
+);
 
 const isOwner =
   fromMe ||
