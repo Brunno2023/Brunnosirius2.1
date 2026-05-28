@@ -14,6 +14,13 @@ const {
   getGroupAdmins
 } = require('./lib/utils');
 
+function cleanNumber(jid = '') {
+  return String(jid)
+    .replace(/:\d+/g, '')
+    .replace(/@.+/g, '')
+    .replace(/\D/g, '');
+}
+
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 const originalConsoleWarn = console.warn;
