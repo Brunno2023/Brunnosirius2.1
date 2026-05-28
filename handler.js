@@ -23,16 +23,20 @@ function normalize(jid = '') {
 }
 
 /* ─────────────────────────────
-   PLUGINS
+   📦 PLUGINS
 ───────────────────────────── */
 const plugins = new Map();
 const messagePlugins = [];
 
 function loadPlugins() {
 
-  const dir = path.join(process.cwd(), 'plugins');
+  const dir = path.join(
+    process.cwd(),
+    'plugins'
+  );
 
-  const files = fs.readdirSync(dir)
+  const files = fs
+    .readdirSync(dir)
     .filter(f => f.endsWith('.js'));
 
   plugins.clear();
@@ -42,7 +46,10 @@ function loadPlugins() {
 
     try {
 
-      const filepath = path.join(dir, file);
+      const filepath = path.join(
+        dir,
+        file
+      );
 
       delete require.cache[
         require.resolve(filepath)
@@ -50,18 +57,29 @@ function loadPlugins() {
 
       const plugin = require(filepath);
 
-      if (typeof plugin.onMessage === 'function') {
+      /* onMessage */
+      if (
+        typeof plugin.onMessage ===
+        'function'
+      ) {
+
         messagePlugins.push({
           ...plugin,
           file
         });
       }
 
-      if (typeof plugin.execute === 'function') {
+      /* commands */
+      if (
+        typeof plugin.execute ===
+        'function'
+      ) {
 
-        const cmds = plugin.commands || [];
+        const cmds =
+          plugin.commands || [];
 
         for (const cmd of cmds) {
+
           plugins.set(
             cmd.toLowerCase(),
             plugin
@@ -72,14 +90,18 @@ function loadPlugins() {
     } catch (e) {
 
       console.log(
-        chalk.red(`❌ Plugin error ${file}:`),
-        e.message
+        chalk.red(
+          `❌ Plugin error ${file}:`
+        ),
+        e
       );
     }
   }
 
   console.log(
-    chalk.green(`✔ Plugins cargados: ${plugins.size}`)
+    chalk.green(
+      `✔ Plugins cargados: ${plugins.size}`
+    )
   );
 }
 
@@ -88,29 +110,37 @@ global.loadPlugins = loadPlugins;
 loadPlugins();
 
 /* ─────────────────────────────
-   MAIN HANDLER
+   🚀 MAIN HANDLER
 ───────────────────────────── */
-async function messageHandler(sock, msg, store = {}) {
+async function messageHandler(
+  sock,
+  msg,
+  store = {}
+) {
 
   try {
 
     if (!msg?.message) return;
 
-    const key = msg.key || {};
+    const key =
+      msg.key || {};
 
-    const remoteJid = key.remoteJid;
+    const remoteJid =
+      key.remoteJid;
 
     if (
       !remoteJid ||
-      remoteJid === 'status@broadcast'
+      remoteJid ===
+      'status@broadcast'
     ) return;
 
     const fromGroup =
       remoteJid.endsWith('@g.us');
 
     /* ─────────────────────────────
-       🔥 FIX DEFINITIVO OWNER
+       👤 SENDER FIX LID
     ───────────────────────────── */
+
     let sender;
 
     if (fromGroup) {
@@ -129,11 +159,13 @@ async function messageHandler(sock, msg, store = {}) {
         key.remoteJid;
     }
 
-    const body = getBody(msg);
+    const body =
+      getBody(msg);
 
     /* ─────────────────────────────
-       👤 OWNER
+       👑 OWNER FIX DEFINITIVO
     ───────────────────────────── */
+
     const senderNumber =
       normalize(sender);
 
@@ -141,16 +173,35 @@ async function messageHandler(sock, msg, store = {}) {
       (config.owner || [])
       .map(normalize);
 
+    /*
+      🔥 IMPORTANTE
+
+      WhatsApp ahora usa LID
+      y muchas veces participantPn
+      viene undefined.
+
+      Entonces usamos:
+      key.fromMe
+
+      si el mensaje es tuyo.
+    */
+
     const isOwner =
-      ownerNumbers.includes(senderNumber);
+      key.fromMe ||
+      ownerNumbers.includes(
+        senderNumber
+      );
 
     /* ─────────────────────────────
-       DEBUG
+       🧠 DEBUG
     ───────────────────────────── */
+
     if (config.debug) {
 
       console.log(
-        chalk.yellow('\n╔════ OWNER DEBUG ════╗')
+        chalk.yellow(
+          '\n╔════ OWNER DEBUG ════╗'
+        )
       );
 
       console.log(
@@ -173,7 +224,14 @@ async function messageHandler(sock, msg, store = {}) {
         isOwner
       );
 
-      console.log('\n📦 RAW');
+      console.log(
+        'fromMe            :',
+        key.fromMe
+      );
+
+      console.log(
+        '\n📦 RAW'
+      );
 
       console.log(
         'participant        :',
@@ -206,8 +264,9 @@ async function messageHandler(sock, msg, store = {}) {
     }
 
     /* ─────────────────────────────
-       ON MESSAGE
+       🧩 ON MESSAGE
     ───────────────────────────── */
+
     for (const plugin of messagePlugins) {
 
       try {
@@ -217,7 +276,8 @@ async function messageHandler(sock, msg, store = {}) {
           sock,
           msg,
 
-          sender: senderNumber,
+          sender:
+            senderNumber,
 
           remoteJid,
 
@@ -240,8 +300,10 @@ async function messageHandler(sock, msg, store = {}) {
       } catch (e) {
 
         console.log(
-          chalk.red('onMessage error:'),
-          e.message
+          chalk.red(
+            '❌ onMessage error:'
+          ),
+          e
         );
       }
     }
@@ -249,21 +311,24 @@ async function messageHandler(sock, msg, store = {}) {
     if (!body) return;
 
     /* ─────────────────────────────
-       COMMAND PARSER
+       ⚡ PREFIX PARSER
     ───────────────────────────── */
-    const parsed = detectPrefix(
-      body,
-      config.prefix
-    );
+
+    const parsed =
+      detectPrefix(
+        body,
+        config.prefix
+      );
 
     if (!parsed) return;
 
-    const args = parsed.body
+    const args =
+      parsed.body
       .trim()
       .split(/\s+/);
 
-    const command = args
-      .shift()
+    const command =
+      args.shift()
       ?.toLowerCase();
 
     const plugin =
@@ -272,19 +337,23 @@ async function messageHandler(sock, msg, store = {}) {
     if (!plugin) return;
 
     /* ─────────────────────────────
-       BAN CHECK
+       🚫 BAN CHECK
     ───────────────────────────── */
+
     if (!isOwner) {
 
       const banned =
-        await db.isBanned(senderNumber);
+        await db.isBanned(
+          senderNumber
+        );
 
       if (banned) {
 
         return sock.sendMessage(
           remoteJid,
           {
-            text: '🚫 Estás baneado del bot'
+            text:
+              '🚫 Estás baneado del bot'
           },
           {
             quoted: msg
@@ -294,14 +363,16 @@ async function messageHandler(sock, msg, store = {}) {
     }
 
     /* ─────────────────────────────
-       EXECUTE
+       🚀 EXECUTE
     ───────────────────────────── */
+
     await plugin.execute?.({
 
       sock,
       msg,
 
-      sender: senderNumber,
+      sender:
+        senderNumber,
 
       remoteJid,
 
@@ -328,7 +399,9 @@ async function messageHandler(sock, msg, store = {}) {
   } catch (err) {
 
     console.log(
-      chalk.red('❌ Handler error:'),
+      chalk.red(
+        '❌ Handler error:'
+      ),
       err
     );
   }
