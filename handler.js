@@ -292,7 +292,8 @@ async function messageHandler(sock, msg, store = {}) {
     const fromMe = !!key.fromMe;
     const fromGroup = remoteJid.endsWith('@g.us');
 
-    let sender = fromGroup ? key.participant : remoteJid;
+    let sender = fromGroup ? key.participant : key.participant || key.remoteJid || remoteJid;
+sender = normalizeJid(sender);
     sender = normalizeJid(sender || remoteJid);
 
     const botJid = normalizeJid(sock.user?.id || '');
