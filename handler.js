@@ -1120,64 +1120,67 @@ async function messageHandler(
 
       await Promise.race([
 
-        plugin.execute?.({
+  plugin.execute?.({
 
-          sock,
-          msg,
-          key,
+    sock,
+    msg,
+    key,
 
-          sender:
-            senderNumber,
+    sender:
+      senderNumber,
 
-          remoteJid,
+    remoteJid,
 
-          body,
+    body,
 
-          args,
+    args,
 
-          command,
+    command,
 
-          fromGroup,
+    fromGroup,
 
-          db,
+    db,
 
-          isAdmin,
+    config,
 
-          isOwner,
+    store,
 
-          isBotAdmin,
+    isAdmin,
 
-          botJid,
+    isOwner,
 
-          store,
+    isBotAdmin,
 
-          config,
+    botJid,
 
-          groupMetadata,
+    groupMetadata,
 
-          groupAdmins,
+    groupAdmins,
 
-          fromMe,
+    fromMe,
 
-          pushName:
-            msg.pushName ||
+    pushName:
+      msg.pushName ||
 
-            msg.push_name ||
+      msg.push_name ||
 
-            'Usuario',
+      'Usuario',
 
-          reply: (t) =>
-            sock.sendMessage(
-              remoteJid,
-              {
-                text:
-                  String(t)
-              },
-              {
-                quoted: msg
-              }
-            )
-        }),
+    prefix:
+      parsed.prefix,
+
+    reply: (t) =>
+      sock.sendMessage(
+        remoteJid,
+        {
+          text:
+            String(t)
+        },
+        {
+          quoted: msg
+        }
+      )
+  }),
 
         new Promise(
           (_, reject) =>
