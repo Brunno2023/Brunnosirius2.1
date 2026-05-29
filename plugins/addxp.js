@@ -81,7 +81,9 @@ Ejemplo:
       }, { quoted: msg });
     }
 
-    await db.addXP(target, amount);
+    const userId = target.split('@')[0];
+
+await db.addXP(userId, amount);
 
     const user =
       await db.getUser(target);
