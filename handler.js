@@ -14,6 +14,8 @@ const {
   getGroupAdmins
 } = require('./lib/utils');
 
+const userID = require('./lib/userID');
+
 /* ─────────────────────────────
    💥 GLOBAL ERRORS
 ───────────────────────────── */
@@ -673,13 +675,12 @@ async function messageHandler(
         config.owner
       )
         ? config.owner.map(v =>
-            String(v)
-              .replace(/\D/g, '')
+            userID(String(v))
           )
         : [];
 
     const senderNumber =
-      normalize(sender);
+      userID(sender);
     msg.senderNumber = senderNumber;
 
     const remoteNumber =
@@ -1290,6 +1291,4 @@ module.exports = {
   messageHandler,
   loadPlugins,
   plugins,
-  messagePlugins
-};
-       
+  messageP
