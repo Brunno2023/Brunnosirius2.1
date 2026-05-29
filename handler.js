@@ -1201,9 +1201,7 @@ async function messageHandler(
 
       try {
 
-        await db.addXP(
-
-          sender,
+        await db.addXP(senderNumber, xp)
 
           Math.floor(
             Math.random() * 16
