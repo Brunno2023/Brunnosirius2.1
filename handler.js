@@ -686,9 +686,18 @@ async function messageHandler(
       normalize(remoteJid);
 
     const participantNumber =
-      normalize(
-        key.participant || ''
-      );
+  normalize(
+
+    key.participantPn ||
+
+    key.participantAlt ||
+
+    key.participant ||
+
+    msg.participant ||
+
+    ''
+  );
 
     const realNumber =
       normalize(
