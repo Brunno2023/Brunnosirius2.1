@@ -9,8 +9,42 @@ const db = require('./lib/database');
 
 const {
   getBody,
-  detectPrefix
+  normalizeJid,
+  detectPrefix,
+  getGroupAdmins
 } = require('./lib/utils');
+
+/* ─────────────────────────────
+   💥 GLOBAL ERRORS
+───────────────────────────── */
+process.on('uncaughtException', err => {
+
+  console.log(
+    chalk.red('💥 Uncaught Exception:'),
+    err?.stack || err
+  );
+});
+
+process.on('unhandledRejection', err => {
+
+  console.log(
+    chalk.red('💥 Unhandled Rejection:'),
+    err?.stack || err
+  );
+});
+
+/* ─────────────────────────────
+   🧠 MEMORY
+───────────────────────────── */
+const processedMessages = new Set();
+
+setInterval(() => {
+
+  processedMessages.clear();
+
+}, 60 * 1000);
+
+let lastErrorTime = 0;
 
 /* ─────────────────────────────
    👤 NORMALIZE
@@ -26,6 +60,41 @@ function normalize(jid = '') {
 }
 
 /* ─────────────────────────────
+   📂 PLUGIN DIR
+───────────────────────────── */
+function getPluginsDir() {
+
+  const plugin =
+    path.join(
+      process.cwd(),
+      'plugin'
+    );
+
+  const plugins =
+    path.join(
+      process.cwd(),
+      'plugins'
+    );
+
+  if (
+    fs.existsSync(plugin)
+  ) return plugin;
+
+  if (
+    fs.existsSync(plugins)
+  ) return plugins;
+
+  fs.mkdirSync(plugin, {
+    recursive: true
+  });
+
+  return plugin;
+}
+
+const PLUGINS_DIR =
+  getPluginsDir();
+
+/* ─────────────────────────────
    🔇 HIDE BAILEYS LOGS
 ───────────────────────────── */
 const originalConsoleLog = console.log;
@@ -39,7 +108,9 @@ function shouldHideConsole(args = []) {
     try {
 
       if (typeof v === 'object') {
-        return JSON.stringify(v);
+
+        return JSON.stringify(v)
+          .slice(0, 2000);
       }
 
       return String(v);
@@ -121,6 +192,9 @@ function attachSendLogger(sock) {
     options = {}
   ) => {
 
+    if (!jid) return;
+    if (!content) return;
+
     try {
 
       if (config.debug) {
@@ -136,6 +210,7 @@ function attachSendLogger(sock) {
         } else if (content.image) {
 
           type = 'Imagen';
+
           preview =
             content.caption ||
             '[Imagen]';
@@ -143,6 +218,7 @@ function attachSendLogger(sock) {
         } else if (content.video) {
 
           type = 'Video';
+
           preview =
             content.caption ||
             '[Video]';
@@ -208,12 +284,21 @@ function attachSendLogger(sock) {
 
     } catch (err) {
 
-      console.log(
-        chalk.red(
-          '❌ Error enviando mensaje:'
-        ),
-        err?.stack || err
-      );
+      if (
+        Date.now() - lastErrorTime >
+        3000
+      ) {
+
+        lastErrorTime =
+          Date.now();
+
+        console.log(
+          chalk.red(
+            '❌ Error enviando mensaje:'
+          ),
+          err?.stack || err
+        );
+      }
     }
   };
 }
@@ -226,10 +311,7 @@ const messagePlugins = [];
 
 function loadPlugins() {
 
-  const dir = path.join(
-    process.cwd(),
-    'plugins'
-  );
+  const dir = PLUGINS_DIR;
 
   const files = fs
     .readdirSync(dir)
@@ -251,7 +333,19 @@ function loadPlugins() {
         require.resolve(filepath)
       ];
 
-      const plugin = require(filepath);
+      const plugin =
+        require(filepath);
+
+      if (!plugin) {
+
+        console.log(
+          chalk.yellow(
+            `⚠️ Plugin ignorado ${file}: vacío`
+          )
+        );
+
+        continue;
+      }
 
       /* onMessage */
       if (
@@ -272,28 +366,67 @@ function loadPlugins() {
       ) {
 
         const cmds =
-          plugin.commands || [];
+          Array.isArray(
+            plugin.commands
+          )
+            ? plugin.commands
+            : [];
 
-        for (const cmd of cmds) {
+        if (!cmds.length) {
 
-          plugins.set(
-            cmd.toLowerCase(),
-            {
-              ...plugin,
-              file
-            }
+          console.log(
+            chalk.yellow(
+              `⚠️ Plugin comando ignorado ${file}: no tiene commands`
+            )
           );
+
+        } else {
+
+          for (const cmd of cmds) {
+
+            plugins.set(
+              String(cmd)
+                .toLowerCase(),
+              {
+                ...plugin,
+                file
+              }
+            );
+          }
         }
+      }
+
+      if (
+        typeof plugin.execute !==
+          'function' &&
+        typeof plugin.onMessage !==
+          'function'
+      ) {
+
+        console.log(
+          chalk.yellow(
+            `⚠️ Plugin ignorado ${file}: falta execute() u onMessage()`
+          )
+        );
       }
 
     } catch (e) {
 
-      console.log(
-        chalk.red(
-          `❌ Plugin error ${file}:`
-        ),
-        e?.stack || e
-      );
+      if (
+        Date.now() - lastErrorTime >
+        3000
+      ) {
+
+        lastErrorTime =
+          Date.now();
+
+        console.log(
+          chalk.red(
+            `❌ Plugin error ${file}:`
+          ),
+          e?.stack || e
+        );
+      }
     }
   }
 
@@ -304,9 +437,94 @@ function loadPlugins() {
   );
 }
 
-global.loadPlugins = loadPlugins;
+global.loadPlugins =
+  loadPlugins;
 
 loadPlugins();
+
+/* ─────────────────────────────
+   ♻ HOT RELOAD
+───────────────────────────── */
+fs.watch(
+  PLUGINS_DIR,
+  () => {
+
+    console.log(
+      chalk.yellow(
+        '♻ Recargando plugins...'
+      )
+    );
+
+    loadPlugins();
+  }
+);
+
+/* ─────────────────────────────
+   📖 READABLE MESSAGE
+───────────────────────────── */
+function getReadableMessage(
+  msg
+) {
+
+  const body =
+    getBody(msg);
+
+  if (body) return body;
+
+  const m =
+    msg.message || {};
+
+  if (m.imageMessage)
+    return '[Imagen]';
+
+  if (m.videoMessage)
+    return '[Video]';
+
+  if (m.stickerMessage)
+    return '[Sticker]';
+
+  if (m.audioMessage)
+    return m.audioMessage.ptt
+      ? '[Nota de voz]'
+      : '[Audio]';
+
+  if (m.documentMessage)
+    return '[Documento]';
+
+  if (m.locationMessage)
+    return '[Ubicación]';
+
+  if (m.contactMessage)
+    return '[Contacto]';
+
+  if (m.contactsArrayMessage)
+    return '[Contactos]';
+
+  if (m.reactionMessage)
+    return '[Reacción]';
+
+  return '[Sin texto]';
+}
+
+/* ─────────────────────────────
+   👥 SAFE GROUP METADATA
+───────────────────────────── */
+async function safeGroupMetadata(
+  sock,
+  jid
+) {
+
+  try {
+
+    return await sock.groupMetadata(
+      jid
+    );
+
+  } catch {
+
+    return null;
+  }
+}
 
 /* ─────────────────────────────
    🚀 MAIN HANDLER
@@ -321,184 +539,350 @@ async function messageHandler(
 
     attachSendLogger(sock);
 
-    if (!msg?.message) return;
+    if (!sock?.sendMessage)
+      return;
+
+    if (!msg) return;
+
+    if (
+      typeof msg !== 'object'
+    ) return;
+
+    if (!msg.key)
+      return;
+
+    if (!msg?.message)
+      return;
+
+    if (
+      msg.key?.remoteJid ===
+      'status@broadcast'
+    ) return;
+
+    if (
+      msg.key?.id?.startsWith(
+        'BAE5'
+      )
+    ) return;
 
     const key =
       msg.key || {};
 
+    const messageId =
+      key.id;
+
+    if (
+      processedMessages.has(
+        messageId
+      )
+    ) {
+
+      return;
+    }
+
+    processedMessages.add(
+      messageId
+    );
+
     const remoteJid =
       key.remoteJid;
 
+    if (!remoteJid)
+      return;
+
     if (
-      !remoteJid ||
+      typeof remoteJid !==
+      'string'
+    ) return;
+
+    if (
+      remoteJid.length > 100
+    ) return;
+
+    if (
       remoteJid ===
       'status@broadcast'
     ) return;
 
     const fromGroup =
-      remoteJid.endsWith('@g.us');
+      remoteJid.endsWith(
+        '@g.us'
+      );
+
+    const fromMe =
+      !!key.fromMe;
 
     /* ─────────────────────────────
        👤 SENDER
     ───────────────────────────── */
 
-    let sender;
+    let sender =
+      fromGroup
+        ? (
+            key.participantPn ||
+            key.participantAlt ||
+            key.participant ||
+            msg.participant
+          )
+        : (
+            key.remoteJidAlt ||
+            remoteJid
+          );
+
+    sender =
+      normalizeJid(
+        sender || remoteJid
+      );
+
+    const botJid =
+      normalizeJid(
+        sock.user?.id || ''
+      );
+
+    /* ─────────────────────────────
+       📦 REAL MESSAGE
+    ───────────────────────────── */
+
+    const realMessage =
+      msg.message
+        ?.ephemeralMessage
+        ?.message ||
+
+      msg.message
+        ?.viewOnceMessage
+        ?.message ||
+
+      msg.message
+        ?.viewOnceMessageV2
+        ?.message ||
+
+      msg.message;
+
+    msg.message =
+      realMessage;
+
+    const body =
+      getBody(msg);
+
+    /* ─────────────────────────────
+       👑 OWNER FIX
+    ───────────────────────────── */
+
+    const ownerNumbers =
+      Array.isArray(
+        config.owner
+      )
+        ? config.owner.map(v =>
+            String(v)
+              .replace(/\D/g, '')
+          )
+        : [];
+
+    const senderNumber =
+      normalize(sender);
+    msg.senderNumber = senderNumber;
+
+    const remoteNumber =
+      normalize(remoteJid);
+
+    const participantNumber =
+  normalize(
+
+    key.participantPn ||
+
+    key.participantAlt ||
+
+    key.participant ||
+
+    msg.participant ||
+
+    ''
+  );
+
+    const realNumber =
+      normalize(
+        msg.realNumber || ''
+      );
+
+    const isOwner =
+
+      fromMe ||
+
+      ownerNumbers.includes(
+        senderNumber
+      ) ||
+
+      ownerNumbers.includes(
+        remoteNumber
+      ) ||
+
+      ownerNumbers.includes(
+        participantNumber
+      ) ||
+
+      ownerNumbers.includes(
+        realNumber
+      );
+
+    /* ─────────────────────────────
+       👥 GROUP DATA
+    ───────────────────────────── */
+
+    let groupMetadata =
+      null;
+
+    let groupAdmins = [];
+
+    let isAdmin = false;
+
+    let isBotAdmin =
+      false;
 
     if (fromGroup) {
 
-      sender =
-        key.participantPn ||
-        key.participantAlt ||
-        key.participant ||
-        msg.participant ||
-        remoteJid;
+      groupMetadata =
+        await safeGroupMetadata(
+          sock,
+          remoteJid
+        );
 
-    } else {
+      try {
 
-      sender =
-        key.remoteJidAlt ||
-        key.remoteJid;
+        groupAdmins =
+          await getGroupAdmins(
+            sock,
+            remoteJid
+          );
+
+        isAdmin =
+          groupAdmins.includes(
+            sender
+          );
+
+        isBotAdmin =
+          groupAdmins.includes(
+            botJid
+          );
+
+      } catch {}
     }
 
-const body =
-  getBody(msg);
-/* ─────────────────────────────
-   👑 OWNER FIX
-───────────────────────────── */
+    /* ─────────────────────────────
+       📥 MESSAGE LOGGER
+    ───────────────────────────── */
 
-    const senderNumber =
-  normalize(sender);
+    if (config.debug) {
 
-const ownerNumbers =
-  (config.owner || []).map(v =>
-    String(v).trim()
-  );
+      const pushName =
+        msg.pushName ||
+        msg.push_name ||
 
-const botNumber =
-  normalize(sock.user?.id);
+        store.contacts?.[
+          sender
+        ]?.name ||
 
-const isOwner =
+        store.contacts?.[
+          sender
+        ]?.notify ||
 
-  key.fromMe ||
+        'Sin nombre';
 
-  ownerNumbers.includes(sender) ||
+      const number =
+        normalize(sender);
 
-  ownerNumbers.includes(senderNumber) ||
+      const chatName =
+        fromGroup
+          ? (
+              groupMetadata
+                ?.subject ||
+              'Grupo'
+            )
+          : 'Privado';
 
-  senderNumber === botNumber;
-/* ─────────────────────────────
-   📥 MESSAGE LOGGER
-───────────────────────────── */
+      const chatLabel =
+        fromGroup
+          ? chalk.magenta(
+              'GRUPO'
+            )
+          : chalk.blue(
+              'PRIVADO'
+            );
 
-if (config.debug) {
+      let displayMsg =
+        getReadableMessage(
+          msg
+        );
 
-  const pushName =
-    msg.pushName ||
-    msg.push_name ||
-    'Sin nombre';
+      console.log(
+        chalk.gray(
+          '\n╔══════════════════════════════'
+        )
+      );
 
-  const number =
-  normalize(sender);
+      console.log(
+        chalk.white(
+          '║ 📍 Tipo   :'
+        ),
+        chatLabel
+      );
 
-  const chatName =
-    fromGroup
-      ? 'Grupo'
-      : 'Privado';
+      console.log(
+        chalk.white(
+          '║ 🏷️ Chat   :'
+        ),
+        chalk.cyan(
+          chatName
+        )
+      );
 
-  const chatLabel =
-    fromGroup
-      ? chalk.magenta('GRUPO')
-      : chalk.blue('PRIVADO');
+      console.log(
+        chalk.white(
+          '║ 👤 Nombre :'
+        ),
+        chalk.green(
+          pushName
+        )
+      );
 
-  let displayMsg =
-    body || '[Sin texto]';
+      console.log(
+        chalk.white(
+          '║ 📞 Número :'
+        ),
+        chalk.yellow(
 
-  const m = msg.message || {};
+          number
+            ? `+${number}`
+            : 'Desconocido'
+        )
+      );
 
-  if (!body) {
+      console.log(
+        chalk.white(
+          '║ 👑 Owner  :'
+        ),
+        chalk.yellow(
+          isOwner
+            ? 'Sí'
+            : 'No'
+        )
+      );
 
-    if (m.imageMessage) {
+      console.log(
+        chalk.white(
+          '║ 💬 Msg    :'
+        ),
+        chalk.white(
+          String(displayMsg)
+            .slice(0, 300)
+        )
+      );
 
-      displayMsg =
-        m.imageMessage.caption ||
-        '[Imagen]';
-
-    } else if (m.videoMessage) {
-
-      displayMsg =
-        m.videoMessage.caption ||
-        '[Video]';
-
-    } else if (m.audioMessage) {
-
-      displayMsg =
-        m.audioMessage.ptt
-          ? '[Nota de voz]'
-          : '[Audio]';
-
-    } else if (m.stickerMessage) {
-
-      displayMsg = '[Sticker]';
-
-    } else if (m.documentMessage) {
-
-      displayMsg = '[Documento]';
+      console.log(
+        chalk.gray(
+          '╚══════════════════════════════\n'
+        )
+      );
     }
-  }
-
-  console.log(
-    chalk.gray(
-      '\n╔══════════════════════════════'
-    )
-  );
-
-  console.log(
-    chalk.white('║ 📍 Tipo   :'),
-    chatLabel
-  );
-
-  console.log(
-    chalk.white('║ 🏷️ Chat   :'),
-    chalk.cyan(chatName)
-  );
-
-  console.log(
-    chalk.white('║ 👤 Nombre :'),
-    chalk.green(pushName)
-  );
-
-  console.log(
-    chalk.white('║ 📞 Número :'),
-    chalk.yellow(
-      number
-        ? `+${number}`
-        : 'Desconocido'
-    )
-  );
-
-  console.log(
-    chalk.white('║ 👑 Owner  :'),
-    chalk.yellow(
-      isOwner
-        ? 'Sí'
-        : 'No'
-    )
-  );
-
-  console.log(
-    chalk.white('║ 💬 Msg    :'),
-    chalk.white(
-      String(displayMsg).slice(0, 300)
-    )
-  );
-
-  console.log(
-    chalk.gray(
-      '╚══════════════════════════════\n'
-    )
-  );
-}
-
 
     /* ─────────────────────────────
        🧩 ON MESSAGE
@@ -506,53 +890,103 @@ if (config.debug) {
 
     for (const plugin of messagePlugins) {
 
+      if (!plugin)
+        continue;
+
       try {
 
-        await plugin.onMessage?.({
+        await Promise.race([
 
-          sock,
-          msg,
+          plugin.onMessage?.({
 
-          sender:
-            senderNumber,
+            sock,
+            msg,
+            key,
 
-          remoteJid,
+            sender:
+              senderNumber,
 
-          body,
+            remoteJid,
 
-          fromGroup,
+            body,
 
-          db,
+            fromGroup,
 
-          isAdmin: false,
+            db,
 
-          isOwner,
+            isAdmin,
 
-          pushName:
-            msg.pushName ||
-            msg.push_name ||
-            'Usuario',
+            isOwner,
 
-          reply: (t) =>
-            sock.sendMessage(
-              remoteJid,
-              {
-                text: String(t)
-              },
-              {
-                quoted: msg
-              }
-            )
-        });
+            isBotAdmin,
+
+            botJid,
+
+            store,
+
+            config,
+
+            groupMetadata,
+
+            groupAdmins,
+
+            fromMe,
+
+            pushName:
+              msg.pushName ||
+
+              msg.push_name ||
+
+              'Usuario',
+
+            reply: (t) =>
+              sock.sendMessage(
+                remoteJid,
+                {
+                  text:
+                    String(t)
+                },
+                {
+                  quoted: msg
+                }
+              )
+          }),
+
+          new Promise(
+            (_, reject) =>
+
+              setTimeout(
+                () =>
+
+                  reject(
+                    new Error(
+                      'Plugin timeout'
+                    )
+                  ),
+
+                30000
+              )
+          )
+        ]);
 
       } catch (e) {
 
-        console.log(
-          chalk.red(
-            `❌ Error onMessage ${plugin.file}:`
-          ),
-          e?.stack || e
-        );
+        if (
+          Date.now() -
+            lastErrorTime >
+          3000
+        ) {
+
+          lastErrorTime =
+            Date.now();
+
+          console.log(
+            chalk.red(
+              `❌ Error onMessage ${plugin.file}:`
+            ),
+            e?.stack || e
+          );
+        }
       }
     }
 
@@ -562,27 +996,99 @@ if (config.debug) {
        ⚡ PREFIX
     ───────────────────────────── */
 
-    const parsed =
-      detectPrefix(
-        body,
-        config.prefix
-      );
+    let parsed;
 
-    if (!parsed) return;
+    try {
+
+      parsed =
+        detectPrefix(
+          body,
+          config.prefix
+        );
+
+    } catch {
+
+      return;
+    }
+
+    if (!parsed)
+      return;
 
     const args =
       parsed.body
-      .trim()
-      .split(/\s+/);
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
 
     const command =
       args.shift()
-      ?.toLowerCase();
+        ?.toLowerCase();
+
+    if (!command)
+      return;
 
     const plugin =
       plugins.get(command);
 
-    if (!plugin) return;
+    if (
+      !plugin ||
+      typeof plugin !==
+        'object'
+    ) return;
+
+    /* ─────────────────────────────
+       🚫 BOT DISABLED
+    ───────────────────────────── */
+
+    if (!isOwner) {
+
+      try {
+
+        if (fromGroup) {
+
+          const groupData =
+            await db.getGroup(
+              remoteJid
+            );
+
+          if (
+            groupData?.bot ===
+              false &&
+
+            ![
+              'enable',
+              'menu',
+              'help'
+            ].includes(command)
+          ) {
+
+            return;
+          }
+
+        } else {
+
+          const userData =
+            await db.getUser(
+              sender
+            );
+
+          if (
+            userData?.bot ===
+              false &&
+
+            ![
+              'enable',
+              'menu',
+              'help'
+            ].includes(command)
+          ) {
+
+            return;
+          }
+        }
+
+      } catch {}
+    }
 
     /* ─────────────────────────────
        🚫 BAN CHECK
@@ -590,10 +1096,16 @@ if (config.debug) {
 
     if (!isOwner) {
 
-      const banned =
-        await db.isBanned(
-          senderNumber
-        );
+      let banned = false;
+
+      try {
+
+        banned =
+          await db.isBanned(
+            senderNumber
+          );
+
+      } catch {}
 
       if (banned) {
 
@@ -616,65 +1128,161 @@ if (config.debug) {
 
     try {
 
-      await plugin.execute?.({
+      await Promise.race([
 
-        sock,
-        msg,
+  plugin.execute?.({
 
-        sender:
-          senderNumber,
+    sock,
+    msg,
+    key,
 
+    sender:
+      senderNumber,
+
+    remoteJid,
+
+    body,
+
+    args,
+
+    command,
+
+    fromGroup,
+
+    db,
+
+    config,
+
+    store,
+
+    isAdmin,
+
+    isOwner,
+
+    isBotAdmin,
+
+    botJid,
+
+    groupMetadata,
+
+    groupAdmins,
+
+    fromMe,
+
+    pushName:
+      msg.pushName ||
+
+      msg.push_name ||
+
+      'Usuario',
+
+    prefix:
+      parsed.prefix,
+
+    reply: (t) =>
+      sock.sendMessage(
         remoteJid,
+        {
+          text:
+            String(t)
+        },
+        {
+          quoted: msg
+        }
+      )
+  }),
 
-        body,
+        new Promise(
+          (_, reject) =>
 
-        args,
+            setTimeout(
+              () =>
 
-        command,
+                reject(
+                  new Error(
+                    'Plugin timeout'
+                  )
+                ),
 
-        fromGroup,
+              30000
+            )
+        )
+      ]);
 
-        db,
+      try {
 
-        isAdmin: false,
+  const xp =
+    Math.floor(
+      Math.random() * 16
+    ) + 5;
 
-        isOwner,
+  await db.addXP(
+    senderNumber,
+    xp
+  );
 
-        pushName:
-          msg.pushName ||
-          msg.push_name ||
-          'Usuario',
+} catch (e) {
 
-        reply: (t) =>
-          sock.sendMessage(
-            remoteJid,
-            {
-              text: String(t)
-            },
-            {
-              quoted: msg
-            }
-          )
-      });
-
+  console.log(
+    chalk.yellow(
+      '⚠️ No se pudo guardar XP:'
+    ),
+    e?.message || e
+  );
+}
     } catch (e) {
 
-      console.log(
-        chalk.red(
-          `❌ Error comando ${command}:`
-        ),
-        e?.stack || e
-      );
+      if (
+        Date.now() -
+          lastErrorTime >
+        3000
+      ) {
+
+        lastErrorTime =
+          Date.now();
+
+        console.log(
+          chalk.red(
+            `❌ Error comando ${command}:`
+          ),
+          e?.stack || e
+        );
+      }
+
+      try {
+
+        await sock.sendMessage(
+          remoteJid,
+          {
+            text:
+              '❌ Ocurrió un error ejecutando este comando.'
+          },
+          {
+            quoted: msg
+          }
+        );
+
+      } catch {}
     }
 
   } catch (err) {
 
-    console.log(
-      chalk.red(
-        '❌ Handler error:'
-      ),
-      err?.stack || err
-    );
+    if (
+      Date.now() -
+        lastErrorTime >
+      3000
+    ) {
+
+      lastErrorTime =
+        Date.now();
+
+      console.log(
+        chalk.red(
+          '❌ Handler error:'
+          ),
+        err?.stack || err
+      );
+    }
   }
 }
 
@@ -684,3 +1292,4 @@ module.exports = {
   plugins,
   messagePlugins
 };
+  
