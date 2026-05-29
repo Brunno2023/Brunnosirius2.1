@@ -360,12 +360,92 @@ async function messageHandler(
         key.remoteJid;
     }
 
-    const body =
-      getBody(msg);
+const body =
+  getBody(msg);
 
-    /* ─────────────────────────────
-       👑 OWNER FIX
-    ───────────────────────────── */
+/* ─────────────────────────────
+   📥 MESSAGE LOGGER
+───────────────────────────── */
+
+if (config.debug) {
+
+  let type = 'Desconocido';
+
+  const m = msg.message || {};
+
+  if (body) {
+
+    type = 'Texto';
+
+  } else if (m.imageMessage) {
+
+    type = 'Imagen';
+
+  } else if (m.videoMessage) {
+
+    type = 'Video';
+
+  } else if (m.audioMessage) {
+
+    type =
+      m.audioMessage.ptt
+        ? 'Nota de voz'
+        : 'Audio';
+
+  } else if (m.stickerMessage) {
+
+    type = 'Sticker';
+
+  } else if (m.documentMessage) {
+
+    type = 'Documento';
+  }
+
+  const preview =
+
+    body ||
+
+    m.imageMessage?.caption ||
+
+    m.videoMessage?.caption ||
+
+    '[Sin texto]';
+
+  console.log(
+    chalk.blue(
+      '\n╔════════ MENSAJE ════════'
+    )
+  );
+
+  console.log(
+    chalk.white('║ 👤 De   :'),
+    chalk.cyan(sender)
+  );
+
+  console.log(
+    chalk.white('║ 💬 Tipo :'),
+    chalk.yellow(type)
+  );
+
+  console.log(
+    chalk.white('║ 📝 Msg  :'),
+    chalk.green(
+      String(preview).slice(0, 300)
+    )
+  );
+
+  console.log(
+    chalk.blue(
+      '╚════════════════════════\n'
+    )
+  );
+}
+
+/* ─────────────────────────────
+   👑 OWNER FIX
+───────────────────────────── */
+```
+
 
     const senderNumber =
       normalize(sender);
