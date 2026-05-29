@@ -369,74 +369,114 @@ const body =
 
 if (config.debug) {
 
-  let type = 'Desconocido';
+  const pushName =
+    msg.pushName ||
+    msg.push_name ||
+    'Sin nombre';
+
+  const number =
+    normalize(sender);
+
+  const isOwner =
+    (config.owner || [])
+    .map(normalize)
+    .includes(number);
+
+  const chatName =
+    fromGroup
+      ? 'Grupo'
+      : 'Privado';
+
+  const chatLabel =
+    fromGroup
+      ? chalk.magenta('GRUPO')
+      : chalk.blue('PRIVADO');
+
+  let displayMsg =
+    body || '[Sin texto]';
 
   const m = msg.message || {};
 
-  if (body) {
+  if (!body) {
 
-    type = 'Texto';
+    if (m.imageMessage) {
 
-  } else if (m.imageMessage) {
+      displayMsg =
+        m.imageMessage.caption ||
+        '[Imagen]';
 
-    type = 'Imagen';
+    } else if (m.videoMessage) {
 
-  } else if (m.videoMessage) {
+      displayMsg =
+        m.videoMessage.caption ||
+        '[Video]';
 
-    type = 'Video';
+    } else if (m.audioMessage) {
 
-  } else if (m.audioMessage) {
+      displayMsg =
+        m.audioMessage.ptt
+          ? '[Nota de voz]'
+          : '[Audio]';
 
-    type =
-      m.audioMessage.ptt
-        ? 'Nota de voz'
-        : 'Audio';
+    } else if (m.stickerMessage) {
 
-  } else if (m.stickerMessage) {
+      displayMsg = '[Sticker]';
 
-    type = 'Sticker';
+    } else if (m.documentMessage) {
 
-  } else if (m.documentMessage) {
-
-    type = 'Documento';
+      displayMsg = '[Documento]';
+    }
   }
 
-  const preview =
-
-    body ||
-
-    m.imageMessage?.caption ||
-
-    m.videoMessage?.caption ||
-
-    '[Sin texto]';
-
   console.log(
-    chalk.blue(
-      '\n╔════════ MENSAJE ════════'
+    chalk.gray(
+      '\n╔══════════════════════════════'
     )
   );
 
   console.log(
-    chalk.white('║ 👤 De   :'),
-    chalk.cyan(sender)
+    chalk.white('║ 📍 Tipo   :'),
+    chatLabel
   );
 
   console.log(
-    chalk.white('║ 💬 Tipo :'),
-    chalk.yellow(type)
+    chalk.white('║ 🏷️ Chat   :'),
+    chalk.cyan(chatName)
   );
 
   console.log(
-    chalk.white('║ 📝 Msg  :'),
-    chalk.green(
-      String(preview).slice(0, 300)
+    chalk.white('║ 👤 Nombre :'),
+    chalk.green(pushName)
+  );
+
+  console.log(
+    chalk.white('║ 📞 Número :'),
+    chalk.yellow(
+      number
+        ? `+${number}`
+        : 'Desconocido'
     )
   );
 
   console.log(
-    chalk.blue(
-      '╚════════════════════════\n'
+    chalk.white('║ 👑 Owner  :'),
+    chalk.yellow(
+      isOwner
+        ? 'Sí'
+        : 'No'
+    )
+  );
+
+  console.log(
+    chalk.white('║ 💬 Msg    :'),
+    chalk.white(
+      String(displayMsg).slice(0, 300)
+    )
+  );
+
+  console.log(
+    chalk.gray(
+      '╚══════════════════════════════\n'
     )
   );
 }
@@ -445,7 +485,8 @@ if (config.debug) {
    👑 OWNER FIX
 ───────────────────────────── */
 
-
+const senderNumber =
+  normalize(sender);
     const senderNumber =
       normalize(sender);
 
