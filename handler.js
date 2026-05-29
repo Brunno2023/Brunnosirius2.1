@@ -362,6 +362,7 @@ async function messageHandler(
 
 const body =
   getBody(msg);
+/* ─────────────────────────────
    👑 OWNER FIX
 ───────────────────────────── */
 
