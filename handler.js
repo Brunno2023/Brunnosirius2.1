@@ -362,7 +362,28 @@ async function messageHandler(
 
 const body =
   getBody(msg);
+   👑 OWNER FIX
+───────────────────────────── */
 
+    const senderNumber =
+      normalize(sender);
+
+    const ownerNumbers =
+      (config.owner || [])
+      .map(normalize);
+
+    const botNumber =
+      normalize(sock.user?.id);
+
+    const isOwner =
+
+      key.fromMe ||
+
+      ownerNumbers.includes(
+        senderNumber
+      ) ||
+
+      senderNumber === botNumber;
 /* ─────────────────────────────
    📥 MESSAGE LOGGER
 ───────────────────────────── */
@@ -476,29 +497,6 @@ if (config.debug) {
   );
 }
 
-/* ─────────────────────────────
-   👑 OWNER FIX
-───────────────────────────── */
-
-    const senderNumber =
-      normalize(sender);
-
-    const ownerNumbers =
-      (config.owner || [])
-      .map(normalize);
-
-    const botNumber =
-      normalize(sock.user?.id);
-
-    const isOwner =
-
-      key.fromMe ||
-
-      ownerNumbers.includes(
-        senderNumber
-      ) ||
-
-      senderNumber === botNumber;
 
     /* ─────────────────────────────
        🧩 ON MESSAGE
