@@ -2,6 +2,15 @@
 
 const db = require('../lib/database');
 
+const afkCooldown = new Map();
+
+setInterval(() => {
+  const cutoff = Date.now() - 60_000;
+  for (const [key, ts] of afkCooldown) {
+    if (ts < cutoff) afkCooldown.delete(key);
+  }
+}, 60_000);
+
 module.exports = {
 
   async onMessage(ctx) {
@@ -30,12 +39,6 @@ module.exports = {
 
       const user = db.data.users[sender];
 
-      /*
-      ─────────────────────────
-      OBTENER TEXTO REAL
-      ─────────────────────────
-      */
-
       const text =
         body ||
         msg.message?.conversation ||
@@ -43,12 +46,6 @@ module.exports = {
         msg.message?.imageMessage?.caption ||
         msg.message?.videoMessage?.caption ||
         '';
-
-      /*
-      ─────────────────────────
-      DETECTAR MENSAJE REAL
-      ─────────────────────────
-      */
 
       const hasMessage =
         !!msg.message?.conversation ||
@@ -61,25 +58,8 @@ module.exports = {
 
       if (!hasMessage) return;
 
-      /*
-      ─────────────────────────
-      EVITAR COMANDOS
-      ─────────────────────────
-      */
-
-      const isCommand =
-        /^[./#!]/.test(text.trim());
-
-      /*
-      ─────────────────────────
-      DETECTAR COMANDO AFK
-      ─────────────────────────
-      */
-
-      const isAfkCommand =
-        /^([./#!])afk\b/i.test(
-          text.trim()
-        );
+      const isCommand    = /^[./#!]/.test(text.trim());
+      const isAfkCommand = /^([./#!])afk\b/i.test(text.trim());
 
       /*
       ─────────────────────────
@@ -94,37 +74,20 @@ module.exports = {
         user.afk > 0
       ) {
 
-        const tiempo =
-          Math.floor(
-            (Date.now() - user.afk) / 1000
-          );
-
-        const horas =
-          Math.floor(tiempo / 3600);
-
-        const minutos =
-          Math.floor((tiempo % 3600) / 60);
-
-        const segundos =
-          tiempo % 60;
+        const tiempo   = Math.floor((Date.now() - user.afk) / 1000);
+        const horas    = Math.floor(tiempo / 3600);
+        const minutos  = Math.floor((tiempo % 3600) / 60);
+        const segundos = tiempo % 60;
 
         let textoTiempo = '';
+        if (horas)    textoTiempo += `${horas}h `;
+        if (minutos)  textoTiempo += `${minutos}m `;
+        if (segundos) textoTiempo += `${segundos}s`;
 
-        if (horas)
-          textoTiempo += `${horas}h `;
-
-        if (minutos)
-          textoTiempo += `${minutos}m `;
-
-        if (segundos)
-          textoTiempo += `${segundos}s`;
-
-        const reason =
-          user.afkReason || 'Sin razón';
+        const reason = user.afkReason || 'Sin razón';
 
         user.afk = -1;
         user.afkReason = '';
-
 
         await sock.sendMessage(remoteJid, {
           text:
@@ -141,7 +104,7 @@ module.exports = {
 
       /*
       ─────────────────────────
-      CONTEXT INFO
+      DETECTAR MENCIONES
       ─────────────────────────
       */
 
@@ -152,17 +115,8 @@ module.exports = {
         msg.message?.documentMessage?.contextInfo ||
         {};
 
-      /*
-      ─────────────────────────
-      DETECTAR MENCIONES
-      ─────────────────────────
-      */
-
-      const mentioned =
-        contextInfo.mentionedJid || [];
-
-      const quoted =
-        contextInfo.participant;
+      const mentioned = contextInfo.mentionedJid || [];
+      const quoted    = contextInfo.participant;
 
       const users = [
         ...new Set([
@@ -171,47 +125,35 @@ module.exports = {
         ])
       ];
 
+      // ✅ Dedup global: evita que Baileys re-dispare el mismo mensaje
+      if (msg._afkDone) return;
+      msg._afkDone = true;
+
       for (const jid of users) {
 
         if (jid === sender) continue;
-
         if (!db.data.users[jid]) continue;
 
-        const target =
-          db.data.users[jid];
+        const target = db.data.users[jid];
+        if (typeof target.afk !== 'number' || target.afk < 0) continue;
 
-        if (
-          typeof target.afk !== 'number' ||
-          target.afk < 0
-        ) continue;
+        // ✅ Cooldown anti-spam por usuario + chat
+        const key = `${jid}:${remoteJid}`;
+        const now = Date.now();
+        if (afkCooldown.has(key) && now - afkCooldown.get(key) < 60_000) continue;
+        afkCooldown.set(key, now);
 
-        const tiempo =
-          Math.floor(
-            (Date.now() - target.afk) / 1000
-          );
-
-        const horas =
-          Math.floor(tiempo / 3600);
-
-        const minutos =
-          Math.floor((tiempo % 3600) / 60);
-
-        const segundos =
-          tiempo % 60;
+        const tiempo   = Math.floor((Date.now() - target.afk) / 1000);
+        const horas    = Math.floor(tiempo / 3600);
+        const minutos  = Math.floor((tiempo % 3600) / 60);
+        const segundos = tiempo % 60;
 
         let textoTiempo = '';
+        if (horas)    textoTiempo += `${horas}h `;
+        if (minutos)  textoTiempo += `${minutos}m `;
+        if (segundos) textoTiempo += `${segundos}s`;
 
-        if (horas)
-          textoTiempo += `${horas}h `;
-
-        if (minutos)
-          textoTiempo += `${minutos}m `;
-
-        if (segundos)
-          textoTiempo += `${segundos}s`;
-
-        const reason =
-          target.afkReason || 'Sin razón';
+        const reason = target.afkReason || 'Sin razón';
 
         await sock.sendMessage(remoteJid, {
           text:
