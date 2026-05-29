@@ -1201,23 +1201,25 @@ async function messageHandler(
 
       try {
 
-        await db.addXP(senderNumber, xp)
+  const xp =
+    Math.floor(
+      Math.random() * 16
+    ) + 5;
 
-          Math.floor(
-            Math.random() * 16
-          ) + 5
-        );
+  await db.addXP(
+    senderNumber,
+    xp
+  );
 
-      } catch (e) {
+} catch (e) {
 
-        console.log(
-          chalk.yellow(
-            '⚠️ No se pudo guardar XP:'
-          ),
-          e?.message || e
-        );
-      }
-
+  console.log(
+    chalk.yellow(
+      '⚠️ No se pudo guardar XP:'
+    ),
+    e?.message || e
+  );
+}
     } catch (e) {
 
       if (
