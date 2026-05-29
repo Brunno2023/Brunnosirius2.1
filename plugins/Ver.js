@@ -320,6 +320,12 @@ module.exports = {
       const xp = Number(user.xp || 0);
       const premium = isPremiumUser(user);
       const owner = isOwner || isOwnerUser(userKey);
+      console.log({
+  sender,
+  userKey,
+  owner,
+  isOwner
+});
       const verUses = await shop.getItem(userKey, 'verUses');
 
       if (['cancelar', 'cancel', 'no'].includes(option)) {
