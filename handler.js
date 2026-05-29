@@ -26,6 +26,199 @@ function normalize(jid = '') {
 }
 
 /* ─────────────────────────────
+   🔇 HIDE BAILEYS LOGS
+───────────────────────────── */
+const originalConsoleLog = console.log;
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+function shouldHideConsole(args = []) {
+
+  const text = args.map(v => {
+
+    try {
+
+      if (typeof v === 'object') {
+        return JSON.stringify(v);
+      }
+
+      return String(v);
+
+    } catch {
+
+      return String(v);
+    }
+
+  }).join(' ');
+
+  const blocked = [
+
+    'Closing session',
+    'Closing stale open session',
+    'SessionEntry',
+    '_chains',
+    'Removing old closed session',
+    'chainKey',
+    'ephemeralKeyPair',
+    'rootKey',
+    'indexInfo',
+    'registrationId',
+    'currentRatchet',
+    'pendingPreKey',
+    'messageKeys',
+    'remoteIdentityKey'
+  ];
+
+  return blocked.some(
+    word => text.includes(word)
+  );
+}
+
+console.log = (...args) => {
+
+  if (shouldHideConsole(args)) {
+    return;
+  }
+
+  originalConsoleLog(...args);
+};
+
+console.error = (...args) => {
+
+  if (shouldHideConsole(args)) {
+    return;
+  }
+
+  originalConsoleError(...args);
+};
+
+console.warn = (...args) => {
+
+  if (shouldHideConsole(args)) {
+    return;
+  }
+
+  originalConsoleWarn(...args);
+};
+
+/* ─────────────────────────────
+   📤 SEND LOGGER
+───────────────────────────── */
+function attachSendLogger(sock) {
+
+  if (sock._loggerAttached) {
+    return;
+  }
+
+  sock._loggerAttached = true;
+
+  const originalSend =
+    sock.sendMessage.bind(sock);
+
+  sock.sendMessage = async (
+    jid,
+    content = {},
+    options = {}
+  ) => {
+
+    try {
+
+      if (config.debug) {
+
+        let type = 'Desconocido';
+        let preview = '';
+
+        if (content.text) {
+
+          type = 'Texto';
+          preview = content.text;
+
+        } else if (content.image) {
+
+          type = 'Imagen';
+          preview =
+            content.caption ||
+            '[Imagen]';
+
+        } else if (content.video) {
+
+          type = 'Video';
+          preview =
+            content.caption ||
+            '[Video]';
+
+        } else if (content.audio) {
+
+          type =
+            content.ptt
+              ? 'Nota de voz'
+              : 'Audio';
+
+          preview = '[Audio]';
+
+        } else if (content.sticker) {
+
+          type = 'Sticker';
+          preview = '[Sticker]';
+
+        } else if (content.document) {
+
+          type = 'Documento';
+
+          preview =
+            content.fileName ||
+            '[Documento]';
+        }
+
+        console.log(
+          chalk.green(
+            '\n╔════════ BOT ENVÍA ════════'
+          )
+        );
+
+        console.log(
+          chalk.white('║ 📤 A    :'),
+          chalk.cyan(jid)
+        );
+
+        console.log(
+          chalk.white('║ 📦 Tipo :'),
+          chalk.yellow(type)
+        );
+
+        console.log(
+          chalk.white('║ 💬 Msg  :'),
+          chalk.green(
+            String(preview).slice(0, 300)
+          )
+        );
+
+        console.log(
+          chalk.green(
+            '╚═══════════════════════════\n'
+          )
+        );
+      }
+
+      return await originalSend(
+        jid,
+        content,
+        options
+      );
+
+    } catch (err) {
+
+      console.log(
+        chalk.red(
+          '❌ Error enviando mensaje:'
+        ),
+        err?.stack || err
+      );
+    }
+  };
+}
+
+/* ─────────────────────────────
    📦 PLUGINS
 ───────────────────────────── */
 const plugins = new Map();
@@ -85,7 +278,10 @@ function loadPlugins() {
 
           plugins.set(
             cmd.toLowerCase(),
-            plugin
+            {
+              ...plugin,
+              file
+            }
           );
         }
       }
@@ -96,7 +292,7 @@ function loadPlugins() {
         chalk.red(
           `❌ Plugin error ${file}:`
         ),
-        e
+        e?.stack || e
       );
     }
   }
@@ -122,6 +318,8 @@ async function messageHandler(
 ) {
 
   try {
+
+    attachSendLogger(sock);
 
     if (!msg?.message) return;
 
@@ -319,9 +517,9 @@ async function messageHandler(
 
         console.log(
           chalk.red(
-            '❌ onMessage error:'
+            `❌ Error onMessage ${plugin.file}:`
           ),
-          e
+          e?.stack || e
         );
       }
     }
@@ -384,46 +582,58 @@ async function messageHandler(
        🚀 EXECUTE
     ───────────────────────────── */
 
-    await plugin.execute?.({
+    try {
 
-      sock,
-      msg,
+      await plugin.execute?.({
 
-      sender:
-        senderNumber,
+        sock,
+        msg,
 
-      remoteJid,
+        sender:
+          senderNumber,
 
-      body,
+        remoteJid,
 
-      args,
+        body,
 
-      command,
+        args,
 
-      fromGroup,
+        command,
 
-      db,
+        fromGroup,
 
-      isAdmin: false,
+        db,
 
-      isOwner,
+        isAdmin: false,
 
-      pushName:
-        msg.pushName ||
-        msg.push_name ||
-        'Usuario',
+        isOwner,
 
-      reply: (t) =>
-        sock.sendMessage(
-          remoteJid,
-          {
-            text: String(t)
-          },
-          {
-            quoted: msg
-          }
-        )
-    });
+        pushName:
+          msg.pushName ||
+          msg.push_name ||
+          'Usuario',
+
+        reply: (t) =>
+          sock.sendMessage(
+            remoteJid,
+            {
+              text: String(t)
+            },
+            {
+              quoted: msg
+            }
+          )
+      });
+
+    } catch (e) {
+
+      console.log(
+        chalk.red(
+          `❌ Error comando ${command}:`
+        ),
+        e?.stack || e
+      );
+    }
 
   } catch (err) {
 
@@ -431,7 +641,7 @@ async function messageHandler(
       chalk.red(
         '❌ Handler error:'
       ),
-      err
+      err?.stack || err
     );
   }
 }
