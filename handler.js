@@ -1266,4 +1266,17 @@ async function messageHandler(
       console.log(
         chalk.red(
           '❌ Handler error:'
+          ),
+        err?.stack || err
+      );
+    }
+  }
+}
+
+module.exports = {
+  messageHandler,
+  loadPlugins,
+  plugins,
+  messagePlugins
+};
        
