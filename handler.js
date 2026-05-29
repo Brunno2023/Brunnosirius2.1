@@ -367,24 +367,25 @@ const body =
 ───────────────────────────── */
 
     const senderNumber =
-      normalize(sender);
+  normalize(sender);
 
-    const ownerNumbers =
-      (config.owner || [])
-      .map(normalize);
+const ownerNumbers =
+  (config.owner || []).map(v =>
+    String(v).trim()
+  );
 
-    const botNumber =
-      normalize(sock.user?.id);
+const botNumber =
+  normalize(sock.user?.id);
 
-    const isOwner =
+const isOwner =
 
-      key.fromMe ||
+  key.fromMe ||
 
-      ownerNumbers.includes(
-        senderNumber
-      ) ||
+  ownerNumbers.includes(sender) ||
 
-      senderNumber === botNumber;
+  ownerNumbers.includes(senderNumber) ||
+
+  senderNumber === botNumber;
 /* ─────────────────────────────
    📥 MESSAGE LOGGER
 ───────────────────────────── */
