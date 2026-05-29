@@ -2,6 +2,14 @@
 
 const db = require('../lib/database');
 
+function cleanJid(jid = '') {
+  return String(jid)
+    .split(':')[0]
+    .replace(/@lid/g, '')
+    .replace(/@s\.whatsapp\.net/g, '')
+    .replace(/@g\.us/g, '');
+}
+
 function getRole(level) {
   if (level >= 500) return '🐉 Trascendido';
   if (level >= 250) return '☄️ Celestial';
@@ -20,17 +28,28 @@ function getRole(level) {
 }
 
 function makeBar(progress, total, size = 10) {
-  const filled = Math.round((progress / total) * size);
-  const empty = size - filled;
 
-  return '█'.repeat(filled) + '░'.repeat(empty);
+  const filled =
+    Math.round(
+      (progress / total) * size
+    );
+
+  const empty =
+    size - filled;
+
+  return (
+    '█'.repeat(filled) +
+    '░'.repeat(empty)
+  );
 }
 
 module.exports = {
   commands: ['rank'],
-  description: 'Muestra tu rango o el de otro usuario',
+  description:
+    'Muestra tu rango o el de otro usuario',
 
   async execute(ctx) {
+
     const {
       sock,
       remoteJid,
@@ -40,38 +59,73 @@ module.exports = {
     } = ctx;
 
     let target = sender;
-    let targetName = pushName;
 
-    if (msg.message?.extendedTextMessage?.contextInfo?.participant) {
-      target = msg.message.extendedTextMessage.contextInfo.participant;
-    } else if (
-      msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.length
+    if (
+      msg.message?.extendedTextMessage
+        ?.contextInfo?.participant
     ) {
-      target = msg.message.extendedTextMessage.contextInfo.mentionedJid[0];
+
+      target =
+        msg.message
+          .extendedTextMessage
+          .contextInfo
+          .participant;
     }
 
-    const user = await db.getUser(target);
+    else if (
+      msg.message?.extendedTextMessage
+        ?.contextInfo?.mentionedJid
+        ?.length
+    ) {
 
-    const xp = user.xp || 0;
-    const level = user.level || 1;
+      target =
+        msg.message
+          .extendedTextMessage
+          .contextInfo
+          .mentionedJid[0];
+    }
 
-    const currentBase = (level - 1) * 1000;
-    const nextBase = level * 1000;
+    target = cleanJid(target);
 
-    const progress = xp - currentBase;
-    const needed = nextBase - xp;
+    const user =
+      await db.getUser(target);
 
-    const role = getRole(level);
-    const bar = makeBar(progress, 1000);
+    const xp =
+      Number(user.xp || 0);
 
-    const number = target.split('@')[0];
+    const level =
+      Number(user.level || 1);
+
+    const currentBase =
+      (level - 1) * 1000;
+
+    const nextBase =
+      level * 1000;
+
+    const progress =
+      xp - currentBase;
+
+    const needed =
+      nextBase - xp;
+
+    const role =
+      getRole(level);
+
+    const bar =
+      makeBar(progress, 1000);
+
+    const number =
+      target.replace(/\D/g, '');
+
     const displayUser =
-      target === sender
+      target === cleanJid(sender)
         ? `👤 ${pushName}`
         : `👤 @${number}`;
 
-    await sock.sendMessage(remoteJid, {
-      text:
+    await sock.sendMessage(
+      remoteJid,
+      {
+        text:
 `╔════════════════════╗
 ║      🎖️ PERFIL RANK
 ╠════════════════════╣
@@ -86,7 +140,11 @@ module.exports = {
 ║
 ║ ⏳ Faltan: ${needed} XP
 ╚════════════════════╝`,
-      mentions: [target]
-    }, { quoted: msg });
+        mentions: [target]
+      },
+      {
+        quoted: msg
+      }
+    );
   }
 };
