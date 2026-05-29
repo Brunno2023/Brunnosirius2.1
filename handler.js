@@ -480,8 +480,6 @@ if (config.debug) {
    👑 OWNER FIX
 ───────────────────────────── */
 
-const senderNumber =
-  normalize(sender);
     const senderNumber =
       normalize(sender);
 
