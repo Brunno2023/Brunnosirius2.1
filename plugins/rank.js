@@ -87,8 +87,9 @@ module.exports = {
 
     target = cleanJid(target);
 
-    const user =
-      await db.getUser(target);
+    const userId = target.split('@')[0];
+
+const user = await db.getUser(userId);
 
     const xp =
       Number(user.xp || 0);
