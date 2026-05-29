@@ -680,6 +680,7 @@ async function messageHandler(
 
     const senderNumber =
       normalize(sender);
+    msg.senderNumber = senderNumber;
 
     const remoteNumber =
       normalize(remoteJid);
