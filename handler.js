@@ -375,12 +375,7 @@ if (config.debug) {
     'Sin nombre';
 
   const number =
-    normalize(sender);
-
-  const isOwner =
-    (config.owner || [])
-    .map(normalize)
-    .includes(number);
+  normalize(sender);
 
   const chatName =
     fromGroup
