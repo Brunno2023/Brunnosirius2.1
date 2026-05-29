@@ -137,7 +137,9 @@ module.exports = {
   async execute({ sock, remoteJid, msg, sender }) {
     try {
       const target = getTarget(msg, sender);
-      const user = await db.getUser(target);
+      const userId = cleanNumber(target);
+
+const user = await db.getUser(userId);
 
       const premium = isPremiumUser(user);
       const owner = isOwnerUser(target);
