@@ -14,7 +14,7 @@ const {
   getGroupAdmins
 } = require('./lib/utils');
 
-const userID = require('./lib/userID');
+const { userId: userID } = require('./lib/userID');
 
 /* ─────────────────────────────
    💥 GLOBAL ERRORS
