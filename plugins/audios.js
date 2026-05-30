@@ -47,6 +47,7 @@ module.exports = {
       { triggers: ['abrigate'], file: 'abrigate.mp3' },
       { triggers: ['bot'], file: 'bot.mp3' },
       { triggers: ['siu','siuu','siuuu','siuuuu','siuuuuu','siuuuuuu'], file: 'siu.mp3' },
+      { triggers: ['casa','Casa','choza'], file: 'casa.mp3' },
       { triggers: ['noche'], file: 'Noche.mp3' },
       { triggers: ['sexo'], file: 'S3x0g.mp3' },
       { triggers: ['linda'], file: 'Linda.mp3' },
