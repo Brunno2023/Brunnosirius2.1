@@ -71,16 +71,24 @@ module.exports = {
       ensureTemp();
 
       await sock.sendMessage(remoteJid, {
-        text: '⏳ Descargando video de Facebook...'
-      }, { quoted: msg });
+  text: '⏳ Descargando video de Facebook...'
+}, { quoted: msg });
 
-      const id = `${Date.now()}_${Math.floor(Math.random() * 9999)}`;
+console.log('[FB] Inicio');
 
-      rawFile = path.join(TEMP_DIR, `fb_raw_${id}.mp4`);
-      finalFile = path.join(TEMP_DIR, `fb_final_${id}.mp4`);
+await downloadFacebook(url, rawFile);
+console.log('[FB] Descarga completada');
 
-      await downloadFacebook(url, rawFile);
-      await convertVideo(rawFile, finalFile);
+await convertVideo(rawFile, finalFile);
+console.log('[FB] Conversión completada');
+
+await sock.sendMessage(remoteJid, {
+  video: fs.readFileSync(finalFile),
+  mimetype: 'video/mp4',
+  caption: '📘 Descargado desde Facebook'
+}, { quoted: msg });
+
+console.log('[FB] Envío completado');
 
       if (!fs.existsSync(finalFile)) {
         return sock.sendMessage(remoteJid, {
