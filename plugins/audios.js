@@ -70,6 +70,7 @@ module.exports = {
       { triggers: ['me voy'], file: 'Me voy.mp3' },
       { triggers: ['sexo1'], file: 'goku sexo.mp3' },
       { triggers: ['Gordo','gordo'], file: 'gordo.mp3' },
+      { triggers: ['nada','Nada','no hay'], file: 'nada.mp3' },
       { triggers: ['broma'], file: 'broma.mp3' },
       { triggers: ['monte','everest','yo puedo'], file: 'monte.mp3' },
       { triggers: ['porro','droga','toalla'], file: 'porro1.mp3' },
