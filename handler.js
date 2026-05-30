@@ -242,8 +242,9 @@ function isInvalidMessage(msg) {
 
 /* ─────────────────────────────
    ⏱ TIMEOUT HELPER
+   ✅ CORREGIDO: 300000ms (5 minutos) para plugins lentos como fb/yt
 ───────────────────────────── */
-const PLUGIN_TIMEOUT = global.PLUGIN_TIMEOUT || 180000;
+const PLUGIN_TIMEOUT = global.PLUGIN_TIMEOUT || 300000;
 
 function withTimeout(promise) {
   return Promise.race([
@@ -326,7 +327,6 @@ async function messageHandler(sock, msg, store = {}) {
     let isBotAdmin    = false;
 
     if (fromGroup) {
-      // Fetch metadata + admins in parallel
       const [meta, admins] = await Promise.allSettled([
         safeGroupMetadata(sock, remoteJid),
         getGroupAdmins(sock, remoteJid).catch(() => [])
