@@ -243,7 +243,7 @@ function isInvalidMessage(msg) {
 /* ─────────────────────────────
    ⏱ TIMEOUT HELPER
 ───────────────────────────── */
-const PLUGIN_TIMEOUT = global.PLUGIN_TIMEOUT || 300000;
+const PLUGIN_TIMEOUT = global.PLUGIN_TIMEOUT || 180000;
 
 function withTimeout(promise) {
   return Promise.race([
