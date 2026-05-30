@@ -71,24 +71,23 @@ module.exports = {
       ensureTemp();
 
       await sock.sendMessage(remoteJid, {
-  text: '⏳ Descargando video de Facebook...'
-}, { quoted: msg });
+        text: '⏳ Descargando video de Facebook...'
+      }, { quoted: msg });
 
-console.log('[FB] Inicio');
+      console.log('[FB] Inicio');
 
-await downloadFacebook(url, rawFile);
-console.log('[FB] Descarga completada');
+      const id = `${Date.now()}_${Math.floor(Math.random() * 9999)}`;
 
-await convertVideo(rawFile, finalFile);
-console.log('[FB] Conversión completada');
+      rawFile = path.join(TEMP_DIR, `fb_raw_${id}.mp4`);
+      finalFile = path.join(TEMP_DIR, `fb_final_${id}.mp4`);
 
-await sock.sendMessage(remoteJid, {
-  video: fs.readFileSync(finalFile),
-  mimetype: 'video/mp4',
-  caption: '📘 Descargado desde Facebook'
-}, { quoted: msg });
+      console.log('[FB] Descargando...');
+      await downloadFacebook(url, rawFile);
+      console.log('[FB] Descarga completada');
 
-console.log('[FB] Envío completado');
+      console.log('[FB] Convirtiendo...');
+      await convertVideo(rawFile, finalFile);
+      console.log('[FB] Conversión completada');
 
       if (!fs.existsSync(finalFile)) {
         return sock.sendMessage(remoteJid, {
@@ -98,17 +97,23 @@ console.log('[FB] Envío completado');
 
       const sizeMB = fs.statSync(finalFile).size / 1024 / 1024;
 
+      console.log(`[FB] Tamaño: ${sizeMB.toFixed(2)} MB`);
+
       if (sizeMB > 30) {
         return sock.sendMessage(remoteJid, {
           text: `⚠️ Video muy pesado (${sizeMB.toFixed(1)} MB)`
         }, { quoted: msg });
       }
 
+      console.log('[FB] Enviando a WhatsApp...');
+
       await sock.sendMessage(remoteJid, {
         video: fs.readFileSync(finalFile),
         mimetype: 'video/mp4',
         caption: '📘 Descargado desde Facebook'
       }, { quoted: msg });
+
+      console.log('[FB] Envío completado');
 
       let xp = Math.floor(Math.random() * 15) + 5;
 
@@ -119,7 +124,7 @@ console.log('[FB] Envío completado');
       await db.addXP(sender, xp);
 
     } catch (err) {
-      console.log('❌ Error en facebook:', err?.message || err);
+      console.log('❌ Error en facebook:', err?.stack || err);
 
       await sock.sendMessage(remoteJid, {
         text: '❌ Error al descargar Facebook.\nVerifica yt-dlp y ffmpeg.'
@@ -128,7 +133,9 @@ console.log('[FB] Envío completado');
     } finally {
       for (const file of [rawFile, finalFile]) {
         try {
-          if (file && fs.existsSync(file)) fs.unlinkSync(file);
+          if (file && fs.existsSync(file)) {
+            fs.unlinkSync(file);
+          }
         } catch {}
       }
     }
