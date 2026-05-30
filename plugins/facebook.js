@@ -26,23 +26,12 @@ function isFacebookUrl(url = '') {
 
 async function downloadFacebook(url, output) {
   await execFileAsync('yt-dlp', [
-    '-f', 'mp4/best',
+    '-f', 'best',           // ✅ 'best' funciona mejor con Facebook que 'mp4/best'
     '--no-playlist',
     '--add-header', 'user-agent:Mozilla/5.0',
+    '--merge-output-format', 'mp4',  // ✅ fuerza salida MP4 sin recodificar
     '-o', output,
     url
-  ]);
-}
-
-async function convertVideo(input, output) {
-  await execFileAsync('ffmpeg', [
-    '-y',
-    '-i', input,
-    '-c:v', 'libx264',
-    '-c:a', 'aac',
-    '-preset', 'veryfast',
-    '-crf', '28',
-    output
   ]);
 }
 
@@ -50,8 +39,7 @@ module.exports = {
   commands: ['facebook', 'fb', 'fbdl'],
 
   async execute({ sock, remoteJid, args, sender, msg }) {
-    let rawFile = null;
-    let finalFile = null;
+    let videoFile = null;
 
     try {
       if (!args.length) {
@@ -74,41 +62,32 @@ module.exports = {
         text: '⏳ Descargando video de Facebook...'
       }, { quoted: msg });
 
-      console.log('[FB] Inicio');
-
       const id = `${Date.now()}_${Math.floor(Math.random() * 9999)}`;
-
-      rawFile = path.join(TEMP_DIR, `fb_raw_${id}.mp4`);
-      finalFile = path.join(TEMP_DIR, `fb_final_${id}.mp4`);
+      videoFile = path.join(TEMP_DIR, `fb_${id}.mp4`);
 
       console.log('[FB] Descargando...');
-      await downloadFacebook(url, rawFile);
+      await downloadFacebook(url, videoFile);
       console.log('[FB] Descarga completada');
 
-      console.log('[FB] Convirtiendo...');
-      await convertVideo(rawFile, finalFile);
-      console.log('[FB] Conversión completada');
-
-      if (!fs.existsSync(finalFile)) {
+      if (!fs.existsSync(videoFile)) {
         return sock.sendMessage(remoteJid, {
-          text: '❌ No se pudo procesar el video.'
+          text: '❌ No se pudo descargar el video.'
         }, { quoted: msg });
       }
 
-      const sizeMB = fs.statSync(finalFile).size / 1024 / 1024;
-
+      const sizeMB = fs.statSync(videoFile).size / 1024 / 1024;
       console.log(`[FB] Tamaño: ${sizeMB.toFixed(2)} MB`);
 
       if (sizeMB > 30) {
         return sock.sendMessage(remoteJid, {
-          text: `⚠️ Video muy pesado (${sizeMB.toFixed(1)} MB)`
+          text: `⚠️ Video muy pesado (${sizeMB.toFixed(1)} MB). Límite: 30 MB.`
         }, { quoted: msg });
       }
 
       console.log('[FB] Enviando a WhatsApp...');
 
       await sock.sendMessage(remoteJid, {
-        video: fs.readFileSync(finalFile),
+        video: fs.readFileSync(videoFile),
         mimetype: 'video/mp4',
         caption: '📘 Descargado desde Facebook'
       }, { quoted: msg });
@@ -116,28 +95,20 @@ module.exports = {
       console.log('[FB] Envío completado');
 
       let xp = Math.floor(Math.random() * 15) + 5;
-
-      if (events?.getState?.()?.type === 'double') {
-        xp *= 2;
-      }
-
+      if (events?.getState?.()?.type === 'double') xp *= 2;
       await db.addXP(sender, xp);
 
     } catch (err) {
       console.log('❌ Error en facebook:', err?.stack || err);
 
       await sock.sendMessage(remoteJid, {
-        text: '❌ Error al descargar Facebook.\nVerifica yt-dlp y ffmpeg.'
+        text: '❌ Error al descargar el video.\nVerifica que el link sea válido y público.'
       }, { quoted: msg });
 
     } finally {
-      for (const file of [rawFile, finalFile]) {
-        try {
-          if (file && fs.existsSync(file)) {
-            fs.unlinkSync(file);
-          }
-        } catch {}
-      }
+      try {
+        if (videoFile && fs.existsSync(videoFile)) fs.unlinkSync(videoFile);
+      } catch {}
     }
   }
 };
