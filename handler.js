@@ -244,7 +244,7 @@ function isInvalidMessage(msg) {
    ⏱ TIMEOUT HELPER
    ✅ CORREGIDO: 300000ms (5 minutos) para plugins lentos como fb/yt
 ───────────────────────────── */
-const PLUGIN_TIMEOUT = global.PLUGIN_TIMEOUT || 300000;
+const PLUGIN_TIMEOUT = global.PLUGIN_TIMEOUT || 600000;
 
 function withTimeout(promise) {
   return Promise.race([
