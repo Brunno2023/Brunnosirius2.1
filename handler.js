@@ -66,7 +66,12 @@ const BLOCKED_TERMS = new Set([
   'currentRatchet',
   'pendingPreKey',
   'messageKeys',
-  'remoteIdentityKey'
+'remoteIdentityKey',
+  'Bad MAC',
+  'Failed to decrypt',
+  'Session error',
+  'Closing open session',
+  'Closing session'
 ]);
 
 function shouldHideConsole(args) {
