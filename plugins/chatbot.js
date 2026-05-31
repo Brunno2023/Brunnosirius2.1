@@ -135,11 +135,11 @@ function localReply(text = '') {
   }
 
   if (/(quien eres|quién eres)/i.test(t)) {
-    return 'Soy SiriusBot 😼';
+    return 'Soy Brunnobot 🫪';
   }
 
   if (/(gracias|thanks)/i.test(t)) {
-    return 'De nada pe 😹';
+    return 'De nada 😹';
   }
 
   return 'Mmm interesante 😹';
