@@ -869,4 +869,124 @@ Ejemplo:
           const count = await warnUser(
             sock,
             remoteJid,
-            ta
+            target,
+            reason || 'Advertencia manual',
+            msg
+          );
+
+          if (count >= MAX_WARN) {
+            if (isProtectedTarget(sock, target)) {
+              resetWarn(remoteJid, target.jid);
+
+              await sendSafe(sock, remoteJid, {
+                text:
+`🛡️ ${target.label} llegó a *${MAX_WARN}/${MAX_WARN}* warns, pero no puede ser expulsado porque es ${getProtectedReason(sock, target)}.`,
+                mentions: [target.jid]
+              }, { quoted: msg });
+
+              continue;
+            }
+
+            if (botAdmin) {
+              await groupUpdateTargets(sock, remoteJid, [target], 'remove');
+              resetWarn(remoteJid, target.jid);
+
+              await sendSafe(sock, remoteJid, {
+                text:
+`🚫 ${target.label} fue expulsado por llegar a *${MAX_WARN}* advertencias.`,
+                mentions: [target.jid]
+              }, { quoted: msg });
+            } else {
+              await sendSafe(sock, remoteJid, {
+                text:
+`⚠️ ${target.label} llegó a *${MAX_WARN}/${MAX_WARN}* warns, pero no puedo expulsarlo porque no soy admin.`,
+                mentions: [target.jid]
+              }, { quoted: msg });
+            }
+          }
+        }
+
+        return;
+      }
+
+      if (cmd === 'unwarn') {
+        const targets = await getTargets(ctx);
+
+        if (!targets.length) {
+          return sock.sendMessage(remoteJid, {
+            text: '❌ Responde, menciona o escribe el número del usuario.'
+          }, { quoted: msg });
+        }
+
+        for (const target of targets) {
+          const current = getWarnCount(remoteJid, target.jid);
+          setWarnCount(remoteJid, target.jid, Math.max(0, current - 1));
+        }
+
+        return sendSafe(sock, remoteJid, {
+          text: `✅ Se quitó 1 warn a: ${targets.map(t => t.label).join(', ')}`,
+          mentions: targets.map(t => t.jid)
+        }, { quoted: msg });
+      }
+
+      if (cmd === 'resetwarn') {
+        const targets = await getTargets(ctx);
+
+        if (!targets.length) {
+          return sock.sendMessage(remoteJid, {
+            text: '❌ Responde, menciona o escribe el número del usuario.'
+          }, { quoted: msg });
+        }
+
+        for (const target of targets) {
+          resetWarn(remoteJid, target.jid);
+        }
+
+        return sendSafe(sock, remoteJid, {
+          text: `✅ Warns reiniciados para: ${targets.map(t => t.label).join(', ')}`,
+          mentions: targets.map(t => t.jid)
+        }, { quoted: msg });
+      }
+
+      if (cmd === 'warnings' || cmd === 'warns') {
+        const metadata = await getFreshMetadata(sock, remoteJid, groupMetadata);
+        const warns = getGroupWarns(remoteJid);
+
+        const entries = Object.entries(warns)
+          .filter(([, data]) => Number(data?.count || 0) > 0)
+          .sort((a, b) => Number(b[1].count || 0) - Number(a[1].count || 0));
+
+        if (!entries.length) {
+          return sock.sendMessage(remoteJid, {
+            text: '✅ No hay usuarios con advertencias en este grupo.'
+          }, { quoted: msg });
+        }
+
+        const targets = entries.map(([jid]) => resolveTarget(jid, metadata));
+        const mentions = targets.map(t => t.jid);
+
+        const list = entries
+          .map(([jid, data], i) => {
+            const target = resolveTarget(jid, metadata);
+            return `${i + 1}. ${target.label} — *${data.count}/${MAX_WARN}*`;
+          })
+          .join('\n');
+
+        return sock.sendMessage(remoteJid, {
+          text:
+`⚠️ *WARNINGS DEL GRUPO*
+
+${list}`,
+          mentions
+        }, { quoted: msg });
+      }
+
+    } catch (err) {
+      console.log(`❌ Error en comando admin (${cmd}):`, err?.message || err);
+
+      return sock.sendMessage(remoteJid, {
+        text: '❌ Ocurrió un error ejecutando el comando.'
+      }, { quoted: msg });
+    }
+  }
+};
