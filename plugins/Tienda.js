@@ -11,7 +11,7 @@ const ITEMS = {
   ver: {
     key: 'verUses',
     name: '🎟️ Uso de .ver',
-    price: 10000,
+    price: 100,
     desc: 'Permite usar .ver 1 vez'
   },
 
