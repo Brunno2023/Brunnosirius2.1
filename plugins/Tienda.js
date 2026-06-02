@@ -74,7 +74,7 @@ function msToTime(ms = 0) {
 
 function shopText() {
   return (
-`🛒 *TIENDA SIRIUSBOT*
+`🛒 *TIENDA BrunnoBot*
 
 🎟️ *ver*
 ➤ Uso de *.ver*
