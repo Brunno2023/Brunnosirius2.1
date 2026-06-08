@@ -46,6 +46,7 @@ module.exports = {
       { triggers: ['viernes'], file: 'viernes.mp3' },
       { triggers: ['abrigate'], file: 'abrigate.mp3' },
       { triggers: ['bot'], file: 'bot.mp3' },
+      { triggers: ['Aura','aura'], file: 'aura.mp3' },
       { triggers: ['siu','siuu','siuuu','siuuuu','siuuuuu','siuuuuuu'], file: 'siu.mp3' },
       { triggers: ['casa','Casa','choza'], file: 'casa.mp3' },
       { triggers: ['culo','firma','Firma','Culo'], file: 'firma.mp3' },
