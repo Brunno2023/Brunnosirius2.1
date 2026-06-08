@@ -9,10 +9,10 @@ function cleanText(text = '') {
     .replace(/\[.*?\]/g, '')
     .replace(/official video/ig, '')
     .replace(/official audio/ig, '')
-    .replace(/video oficial/ig, '')
-    .replace(/audio oficial/ig, '')
     .replace(/lyrics/ig, '')
     .replace(/letra/ig, '')
+    .replace(/video oficial/ig, '')
+    .replace(/audio oficial/ig, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -28,14 +28,6 @@ function splitArtistTitle(title = '') {
     };
   }
 
-  if (clean.includes(' – ')) {
-    const [artist, ...rest] = clean.split(' – ');
-    return {
-      artist: artist.trim(),
-      title: rest.join(' – ').trim()
-    };
-  }
-
   return {
     artist: '',
     title: clean
@@ -43,12 +35,11 @@ function splitArtistTitle(title = '') {
 }
 
 function cutLyrics(text = '', max = 3500) {
-  const lyrics = String(text || '').trim();
+  text = String(text || '').trim();
 
-  if (lyrics.length <= max) return lyrics;
+  if (text.length <= max) return text;
 
-  return lyrics.slice(0, max) +
-    '\n\n⚠️ Letra muy larga, se envió recortada.';
+  return text.slice(0, max) + '\n\n⚠️ Letra recortada.';
 }
 
 async function searchYouTube(query) {
@@ -56,132 +47,154 @@ async function searchYouTube(query) {
 
   if (!res.videos?.length) return null;
 
-  return (
-    res.videos.find(v =>
-      !/mix|playlist/i.test(v.title)
-    ) || res.videos[0]
-  );
+  return res.videos[0];
 }
 
-async function getLyrics(title, artist = '') {
-  const attempts = [
-    {
-      track_name: title,
-      artist_name: artist
-    },
-    {
-      track_name: cleanText(title),
-      artist_name: artist
-    },
-    {
-      track_name: cleanText(title),
-      artist_name: ''
-    }
-  ];
+async function getLyricsOVH(artist, title) {
+  try {
+    const url =
+      `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
 
-  for (const params of attempts) {
-    try {
-      const { data } = await axios.get(
-        'https://lrclib.net/api/search',
-        {
-          params,
-          timeout: 15000
-        }
-      );
+    const { data } = await axios.get(url, {
+      timeout: 15000
+    });
 
-      if (Array.isArray(data) && data.length) {
-        const song = data[0];
-
-        return (
-          song.plainLyrics ||
-          song.syncedLyrics ||
-          ''
-        );
-      }
-    } catch {}
+    return data?.lyrics || '';
+  } catch {
+    return '';
   }
+}
 
-  return '';
+async function getLyricsLRCLIB(artist, title) {
+  try {
+    const { data } = await axios.get(
+      'https://lrclib.net/api/search',
+      {
+        params: {
+          artist_name: artist,
+          track_name: title
+        },
+        timeout: 15000
+      }
+    );
+
+    if (!Array.isArray(data) || !data.length) {
+      return '';
+    }
+
+    const song = data[0];
+
+    return (
+      song.plainLyrics ||
+      song.syncedLyrics ||
+      ''
+    );
+  } catch {
+    return '';
+  }
 }
 
 module.exports = {
   commands: ['letra', 'lyrics'],
 
-  async execute({
-    sock,
-    remoteJid,
-    args,
-    msg,
-    reply
-  }) {
+  async execute({ sock, remoteJid, args, msg }) {
     try {
       if (!args.length) {
-        return reply(
+        return sock.sendMessage(
+          remoteJid,
+          {
+            text:
 `❌ Escribe una canción.
 
 Ejemplos:
 .letra bad bunny dakiti
 .letra shakira hips dont lie
 .lyrics adele hello`
+          },
+          { quoted: msg }
         );
       }
 
-      const query = args.join(' ').trim();
+      const query = args.join(' ');
 
-      await sock.sendMessage(remoteJid, {
-        text: '🔍 Buscando letra...'
-      }, { quoted: msg });
+      await sock.sendMessage(
+        remoteJid,
+        {
+          text: '🔍 Buscando canción y letra...'
+        },
+        { quoted: msg }
+      );
 
       const video = await searchYouTube(query);
 
       if (!video) {
-        return reply('❌ No encontré esa canción.');
+        return sock.sendMessage(
+          remoteJid,
+          {
+            text: '❌ No encontré esa canción.'
+          },
+          { quoted: msg }
+        );
       }
 
       let { artist, title } = splitArtistTitle(video.title);
 
-      if (!artist || !title) {
+      if (!artist) {
         artist = video.author?.name || '';
+      }
+
+      if (!title) {
         title = cleanText(video.title);
       }
 
-      let lyrics = await getLyrics(title, artist);
+      let lyrics = '';
+
+      lyrics = await getLyricsOVH(artist, title);
 
       if (!lyrics) {
-        lyrics = await getLyrics(query);
+        lyrics = await getLyricsLRCLIB(artist, title);
       }
 
       if (!lyrics) {
-        return reply(
+        return sock.sendMessage(
+          remoteJid,
+          {
+            text:
 `❌ No encontré la letra.
 
-Prueba escribir:
+🎵 Canción detectada:
+${video.title}
 
-.letra artista - canción
-
-Ejemplo:
-.letra bad bunny - dakiti`
+Prueba escribiendo:
+.letra artista - canción`
+          },
+          { quoted: msg }
         );
       }
 
       lyrics = cutLyrics(lyrics);
 
-      return sock.sendMessage(remoteJid, {
-        text:
+      return sock.sendMessage(
+        remoteJid,
+        {
+          text:
 `🎵 *${title}*
-👤 *${artist || 'Desconocido'}*
+👤 *${artist}*
 
 ${lyrics}`
-      }, { quoted: msg });
-
-    } catch (err) {
-      console.log(
-        '❌ Error letra:',
-        err?.message || err
+        },
+        { quoted: msg }
       );
 
-      return reply(
-        '❌ Error buscando la letra de la canción.'
+    } catch (err) {
+      console.log('❌ Error letra:', err?.message || err);
+
+      return sock.sendMessage(
+        remoteJid,
+        {
+          text: '❌ Error buscando la letra.'
+        },
+        { quoted: msg }
       );
     }
   }
