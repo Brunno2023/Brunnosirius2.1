@@ -18,14 +18,19 @@ const ANIMALES = {
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-function cleanJid(jid = '') { return String(jid).split(':')[0]; }
-function cleanNumber(jid = '') { return cleanJid(jid).split('@')[0].replace(/\D/g, ''); }
+// ✅ CORREGIDO: cleanNumber ya no depende de JID, solo limpia dígitos
+function cleanNumber(id = '') {
+  return String(id).replace(/\D/g, '');
+}
 
-function getTarget(msg, args) {
+// ✅ CORREGIDO: getTarget extrae el número limpio directamente del JID
+function getTarget(msg) {
   const quoted = msg.message?.extendedTextMessage?.contextInfo?.participant;
-  if (quoted) return cleanJid(quoted);
+  if (quoted) return quoted.split('@')[0].replace(/\D/g, '');
+
   const mentioned = msg.message?.extendedTextMessage?.contextInfo?.mentionedJid?.[0];
-  if (mentioned) return cleanJid(mentioned);
+  if (mentioned) return mentioned.split('@')[0].replace(/\D/g, '');
+
   return null;
 }
 
@@ -123,7 +128,9 @@ module.exports = {
   
   async execute(ctx) {
     const { sock, remoteJid, msg, sender, args, command, isOwner, pushName } = ctx;
-    const userKey = cleanJid(sender);
+
+    // ✅ CORREGIDO: userKey usa el sender tal cual llega (ya es número limpio)
+    const userKey = String(sender);
     const userData = await db.getUser(userKey);
     const now = Date.now();
     const petCommands = ['mascota', 'alimentar', 'jugar', 'entrenar', 'pasear', 'dormir', 'curar', 'pelear'];
@@ -172,7 +179,8 @@ module.exports = {
     if (command === 'darmascota') {
       if (!isOwner) return sock.sendMessage(remoteJid, { text: `❌ Solo los Dioses (Owners) pueden crear criaturas a voluntad.` }, { quoted: msg });
       
-      const target = getTarget(msg, args);
+      // ✅ CORREGIDO: getTarget ya no recibe args
+      const target = getTarget(msg);
       if (!target) return sock.sendMessage(remoteJid, { text: `❌ Menciona al usuario.\n*Uso:* .darmascota @user Raza | Nombre` }, { quoted: msg });
 
       const partesTexto = args.join(' ').split('|');
@@ -202,14 +210,16 @@ module.exports = {
       targetData.petGraveyard = false; 
       await db.setUser(target, targetData);
 
-      return sock.sendMessage(remoteJid, { text: `🎁 *REGALO DIVINO*\n\nEl Owner ha concedido a @${cleanNumber(target)} un majestuoso *${razaOficial}* llamado *${nombreElegido}*.`, mentions: [target] }, { quoted: msg });
+      // ✅ CORREGIDO: cleanNumber recibe el target (número limpio)
+      return sock.sendMessage(remoteJid, { text: `🎁 *REGALO DIVINO*\n\nEl Owner ha concedido a @${cleanNumber(target)} un majestuoso *${razaOficial}* llamado *${nombreElegido}*.`, mentions: [`${target}@s.whatsapp.net`] }, { quoted: msg });
     }
 
     // 👑 COMANDO EXCLUSIVO OWNER: RENOMBRAR MASCOTA
     if (command === 'editarnombre') {
       if (!isOwner) return sock.sendMessage(remoteJid, { text: `❌ Solo el Owner puede cambiar nombres por la fuerza.` }, { quoted: msg });
       
-      const target = getTarget(msg, args);
+      // ✅ CORREGIDO: getTarget ya no recibe args
+      const target = getTarget(msg);
       if (!target) return sock.sendMessage(remoteJid, { text: `❌ Menciona al usuario.\n*Uso:* .editarnombre @user NuevoNombre` }, { quoted: msg });
 
       const nuevoNombre = args.join(' ').replace(/@\d+/g, '').trim();
@@ -222,7 +232,7 @@ module.exports = {
       targetData.pet.name = nuevoNombre;
       await db.setUser(target, targetData);
 
-      return sock.sendMessage(remoteJid, { text: `✅ Has cambiado el nombre de la mascota de @${cleanNumber(target)}.\n\nDe *${antiguo}* pasó a llamarse *${nuevoNombre}*.`, mentions: [target] }, { quoted: msg });
+      return sock.sendMessage(remoteJid, { text: `✅ Has cambiado el nombre de la mascota de @${cleanNumber(target)}.\n\nDe *${antiguo}* pasó a llamarse *${nuevoNombre}*.`, mentions: [`${target}@s.whatsapp.net`] }, { quoted: msg });
     }
 
     // 2. PERFIL
@@ -325,133 +335,96 @@ module.exports = {
     if (command === 'curar') {
       if (!hoursPassed(p.lastFeed, 24)) {
         const media = getPetMedia(p.type, 'contenta', p.level);
-        return sendMediaMsg(sock, remoteJid, media, `✅ *${p.name}(${p.type})* goza de buena salud.`, msg);
+        return sendMediaMsg(sock, remoteJid, media, `✅ *${p.name}(${p.type})* está sano. No necesita curación.`, msg);
       }
-      p.lastFeed = now - (23 * 60 * 60 * 1000); 
-      return procesarAccion(5, 'curando', `💊 Aplicaste medicina a *${p.name}(${p.type})*. ¡Se está recuperando!`, true);
+      p.lastFeed = now;
+      return procesarAccion(10, 'curando', `💊 Le diste medicamentos a *${p.name}(${p.type})*. Se recupera lentamente.`, true);
     }
 
     if (command === 'dormir') {
       const media = getPetMedia(p.type, 'durmiendo', p.level);
-      const txt = `💤 Mandaste a descansar a *${p.name}(${p.type})*. Respira pacíficamente...`;
+      return sendMediaMsg(sock, remoteJid, media, `💤 *${p.name}(${p.type})* se va a descansar. ¡Buenas noches!`, msg);
+    }
+
+    if (command === 'sacrificar') {
+      const media = getPetMedia(p.type, 'sacrificada', p.level);
+      const txt = `🪦 *${p.name}(${p.type})* ha sido sacrificado.\n\nEsperamos que hayas tenido buenas razones. Su alma descansa en paz.`;
+      delete userData.pet;
+      await db.setUser(userKey, userData);
       return sendMediaMsg(sock, remoteJid, media, txt, msg);
     }
 
-    // ⚔️ SISTEMA DE COMBATE (FOTOS DE ESTADO OBLIGATORIAS)
-    if (command === 'pelear') {
-      const target = getTarget(msg, args);
-      if (!target) return sock.sendMessage(remoteJid, { text: `❌ Menciona a tu rival.` }, { quoted: msg });
-      if (target === userKey) return sock.sendMessage(remoteJid, { text: `❌ No pelees solo.` }, { quoted: msg });
-
-      const targetData = await db.getUser(target);
-      if (!targetData.pet) return sock.sendMessage(remoteJid, { text: `❌ El rival no tiene mascota.` }, { quoted: msg });
-      const enemyPet = targetData.pet;
-      
-      const n1 = `${p.name}(${p.type})`;
-      const n2 = `${enemyPet.name}(${enemyPet.type})`;
-
-      // 🔥 SI ESTÁS HERIDO: Envía tu foto/video de enfermo
-      if (hoursPassed(p.lastFeed, 24)) {
-        const m = getPetMedia(p.type, 'enferma', p.level);
-        return sendMediaMsg(sock, remoteJid, m, `🚑 *${n1}* está muy herido para pelear. Usa .curar.`, msg);
-      }
-      
-      // 🔥 SI EL RIVAL ESTÁ HERIDO: Envía su foto/video de enfermo
-      if (hoursPassed(enemyPet.lastFeed, 24)) {
-        const m = getPetMedia(enemyPet.type, 'enferma', enemyPet.level);
-        return sendMediaMsg(sock, remoteJid, m, `🛑 *${n2}* está herido. Atacar ahora sería deshonroso.`, msg);
-      }
-      
-      const cooldown = (60 * 60 * 1000) - (now - (p.lastBattle || 0));
-      if (cooldown > 0 && !isOwner && !userData.premium) {
-        const m = getPetMedia(p.type, 'durmiendo', p.level);
-        return sendMediaMsg(sock, remoteJid, m, `⏳ *${n1}* descansa. Espera *${Math.floor(cooldown / 60000)} min*.`, msg);
-      }
-      
-      p.lastBattle = now;
-
-      const miPoder = p.level * getRarezaMascota(p.type) * (p.level >= NIVEL_EVOLUCION ? 1.5 : 1.0);
-      const rivalPoder = enemyPet.level * getRarezaMascota(enemyPet.type) * (enemyPet.level >= NIVEL_EVOLUCION ? 1.5 : 1.0);
-      const dif = p.level - enemyPet.level;
-      let probGanar = 50;
-
-      if (Math.abs(dif) <= 5) {
-        probGanar = Math.min(Math.max((miPoder / (miPoder + rivalPoder)) * 100, 30), 70); 
-      } else {
-        probGanar = dif > 0 ? 88 : 12; 
-      }
-
-      const ganeYo = (Math.random() * 100) <= probGanar;
-      const xpBatalla = Math.floor(Math.random() * 60) + 60; 
-      const adnMio = obtenerADN(p.type);
-      const adnRival = obtenerADN(enemyPet.type);
-
-      // 🖼️ FOTO DEL VS
-      const vsImagePath = path.join(PETS_DIR, 'vs.jpg');
-      if (fs.existsSync(vsImagePath)) {
-        await sock.sendMessage(remoteJid, { image: fs.readFileSync(vsImagePath), caption: `⚔️ *¡EL COMBATE VA A COMENZAR!*\n\n${n1} 🆚 ${n2}` }, { quoted: msg });
-      } else {
-        await sock.sendMessage(remoteJid, { text: `⚔️ *¡EL COMBATE VA A COMENZAR!*\n\n${n1} 🆚 ${n2}` }, { quoted: msg });
-      }
-
-      let texto = `⚔️ *${n1}* ${adnMio.preparacion} para enfrentar a *${n2}*.`;
-      const msgBatalla = await sock.sendMessage(remoteJid, { text: texto, mentions: [target] });
-      await delay(10000); 
-
-      texto = `💨 *${n1}* toma la iniciativa y ${adnMio.ataque}!`;
-      await sock.sendMessage(remoteJid, { text: texto, edit: msgBatalla.key, mentions: [target] });
-      await delay(10000);
-
-      if (ganeYo) {
-        texto = `🔥 *${n2}* intenta resistir, pero *${n1}* no tiene piedad y ${adnMio.remate}!`;
-      } else {
-        texto = `🔥 *${n2}* resiste sin problemas, aprovecha una apertura y ${adnRival.remate}!`;
-      }
-      await sock.sendMessage(remoteJid, { text: texto, edit: msgBatalla.key, mentions: [target] });
-      await delay(10000);
-
-      texto = ganeYo ? `🏆 ¡*${n1}* ha derrotado por completo a *${n2}*!` : `💀 ¡*${n2}* destruye a *${n1}* sin esfuerzo!`;
-      await sock.sendMessage(remoteJid, { text: texto, edit: msgBatalla.key, mentions: [target] });
-      await delay(2000); 
-
-      let txtResumen = `📜 *RESUMEN DE LA BATALLA* 📜\n\n`;
-      if (ganeYo) {
-        txtResumen += `🏆 *GANADOR:* ${n1} (+${xpBatalla} XP)\n🩸 *PERDEDOR:* ${n2} (Requiere .curar)\n`;
-        p.xp += xpBatalla;
-        enemyPet.lastFeed = now - (25 * 60 * 60 * 1000); 
-      } else {
-        txtResumen += `🏆 *GANADOR:* ${n2} (+${xpBatalla} XP)\n🩸 *PERDEDOR:* ${n1} (Requiere .curar)\n`;
-        enemyPet.xp += xpBatalla;
-        p.lastFeed = now - (25 * 60 * 60 * 1000); 
-      }
-
-      if (Math.floor(p.xp / 200) + 1 > p.level) {
-        p.level = Math.floor(p.xp / 200) + 1;
-        txtResumen += `\n✨ ¡${p.name} subió al Nivel ${p.level}!`;
-      }
-      if (Math.floor(enemyPet.xp / 200) + 1 > enemyPet.level) {
-        enemyPet.level = Math.floor(enemyPet.xp / 200) + 1;
-      }
-
-      await db.setUser(userKey, userData);
-      await db.setUser(target, targetData);
-      return sock.sendMessage(remoteJid, { text: txtResumen, mentions: [target] });
-    }
-
-    // 🔥 SACRIFICAR / PERDONAR
-    if (command === 'sacrificar') {
-      if (!userData.pet) return sock.sendMessage(remoteJid, { text: `❌ No tienes mascota.` }, { quoted: msg });
-      if (!args.includes('confirmar')) return sock.sendMessage(remoteJid, { text: `⚠️ Escribe: *.sacrificar confirmar*` }, { quoted: msg });
-      userData.petGraveyard = true; delete userData.pet; await db.setUser(userKey, userData);
-      return sock.sendMessage(remoteJid, { text: `☠️ Mascota sacrificada. Has sido vetado.` }, { quoted: msg });
-    }
+    // 👑 COMANDO EXCLUSIVO OWNER: PERDONAR
     if (command === 'perdonar') {
-      if (!isOwner) return sock.sendMessage(remoteJid, { text: `❌ Solo el Owner revoca vetos.` }, { quoted: msg });
-      const target = getTarget(msg, args);
-      if (!target) return sock.sendMessage(remoteJid, { text: `❌ Menciona al usuario vetado.` }, { quoted: msg });
+      if (!isOwner) return sock.sendMessage(remoteJid, { text: `❌ Solo el Owner puede otorgar el perdón.` }, { quoted: msg });
+
+      // ✅ CORREGIDO: getTarget ya no recibe args
+      const target = getTarget(msg);
+      if (!target) return sock.sendMessage(remoteJid, { text: `❌ Menciona al usuario a perdonar.` }, { quoted: msg });
+
       const targetData = await db.getUser(target);
-      targetData.petGraveyard = false; await db.setUser(target, targetData);
-      return sock.sendMessage(remoteJid, { text: `⚖️ Vetación revocada a @${cleanNumber(target)}.`, mentions: [target] }, { quoted: msg });
+      targetData.petGraveyard = false;
+      await db.setUser(target, targetData);
+
+      return sock.sendMessage(remoteJid, { text: `✅ @${cleanNumber(target)} ha sido perdonado. Ya puede adoptar una nueva mascota.`, mentions: [`${target}@s.whatsapp.net`] }, { quoted: msg });
+    }
+
+    // ⚔️ PELEAR
+    if (command === 'pelear') {
+      // ✅ CORREGIDO: getTarget ya no recibe args
+      const target = getTarget(msg);
+      if (!target) return sock.sendMessage(remoteJid, { text: `❌ Menciona a tu rival.\n*Uso:* .pelear @usuario` }, { quoted: msg });
+      if (target === userKey) return sock.sendMessage(remoteJid, { text: `❌ No puedes pelear contra ti mismo.` }, { quoted: msg });
+
+      const remaining = (60 * 60 * 1000) - (now - (p.lastBattle || 0));
+      if (remaining > 0) return sock.sendMessage(remoteJid, { text: `⏳ *${p.name}* aún se recupera de la última batalla. Espera *${Math.floor(remaining / 60000)} min*.` }, { quoted: msg });
+
+      const rivalData = await db.getUser(target);
+      if (!rivalData.pet) return sock.sendMessage(remoteJid, { text: `❌ Tu rival no tiene mascota.` }, { quoted: msg });
+
+      const rival = rivalData.pet;
+      const myPower = (p.level * 10) + (p.xp * 0.1) * getRarezaMascota(p.type);
+      const rivalPower = (rival.level * 10) + (rival.xp * 0.1) * getRarezaMascota(rival.type);
+      const myWinChance = myPower / (myPower + rivalPower);
+      const iWin = Math.random() < myWinChance;
+
+      const myDNA = obtenerADN(p.type);
+      const rivalDNA = obtenerADN(rival.type);
+
+      const attacker = iWin ? p : rival;
+      const defender = iWin ? rival : p;
+      const attackerDNA = iWin ? myDNA : rivalDNA;
+
+      const intro = `⚔️ *¡COMBATE ÉPICO!* ⚔️\n\n🔴 *${p.name}* (${p.type}) Nv.${p.level}\n🆚\n🔵 *${rival.name}* (${rival.type}) Nv.${rival.level}`;
+      await sock.sendMessage(remoteJid, { text: intro }, { quoted: msg });
+      await delay(2000);
+
+      const fase1 = `👁️ *${attacker.name}* ${attackerDNA.preparacion}...`;
+      await sock.sendMessage(remoteJid, { text: fase1 });
+      await delay(2000);
+
+      const fase2 = `💥 *${attacker.name}* ${attackerDNA.ataque}!`;
+      await sock.sendMessage(remoteJid, { text: fase2 });
+      await delay(2000);
+
+      const xpGain = Math.floor(50 * getRarezaMascota(defender.type));
+      if (iWin) {
+        p.xp += xpGain;
+        p.lastBattle = now;
+        const newLevel = Math.floor(p.xp / 200) + 1;
+        if (newLevel > p.level) p.level = newLevel;
+        await db.setUser(userKey, userData);
+      } else {
+        rival.xp += xpGain;
+        rival.lastBattle = now;
+        const newLevel = Math.floor(rival.xp / 200) + 1;
+        if (newLevel > rival.level) rival.level = newLevel;
+        await db.setUser(target, rivalData);
+      }
+
+      const finale = `💀 *${attacker.name}* ${attackerDNA.remate}!\n\n🏆 *¡${attacker.name} (${attacker.type}) GANA!*\n⭐ Ganó *+${xpGain} XP*`;
+      const mediaWin = getPetMedia(attacker.type, 'peleando', attacker.level);
+      return sendMediaMsg(sock, remoteJid, mediaWin, finale, msg);
     }
   }
 };
