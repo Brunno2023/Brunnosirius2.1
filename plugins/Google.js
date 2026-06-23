@@ -1,124 +1,113 @@
 'use strict';
 
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
-
-puppeteer.use(StealthPlugin());
-
-const processingChats = new Set();
+const axios = require('axios');
+const cheerio = require('cheerio');
 
 module.exports = {
   commands: ['google', 'buscar'],
 
-  async execute(ctx) {
-    const { sock, remoteJid, args, msg, sender } = ctx;
-
+  async execute({ sock, remoteJid, args, msg }) {
     try {
       if (!args.length) {
         return sock.sendMessage(remoteJid, {
-          text: '❌ Dime qué quieres buscar.\n\nEjemplo:\n.google quién es el presidente de Perú'
-        }, { quoted: msg });
-      }
-
-      if (processingChats.has(remoteJid)) {
-        return sock.sendMessage(remoteJid, {
-          text: '⏳ Aguanta, el bot está procesando otra búsqueda pesada en este momento.'
+          text: '❌ Escribe algo para buscar.\n\nEjemplo:\n.google resultado del mundial'
         }, { quoted: msg });
       }
 
       const query = args.join(' ');
 
       await sock.sendMessage(remoteJid, {
-        text: '🤖 *Iniciando asistente IA...* analizando desde Perú y tomando captura.'
+        text: '🔍 Buscando en Internet...'
       }, { quoted: msg });
 
-      processingChats.add(remoteJid);
+      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
 
-      const browser = await puppeteer.launch({
-        executablePath: '/usr/bin/chromium-browser',
-        headless: 'new',
-        args: [
-          '--no-sandbox', 
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage'
-        ]
+      const { data } = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0'
+        },
+        timeout: 15000
       });
 
-      const page = await browser.newPage();
+      const $ = cheerio.load(data);
 
-      // 🔥 TRUCO DE UBICACIÓN: Fingimos ser una PC en Perú
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-      await page.setExtraHTTPHeaders({
-        // Esto fuerza a las páginas y a la IA a usar Español Latino/Peruano
-        'Accept-Language': 'es-PE,es-419,es;q=0.9,en;q=0.8'
+      const results = [];
+
+      $('.result').each((i, el) => {
+        if (i >= 5) return false;
+
+        const title = $(el).find('.result__title').text().trim();
+        const snippet = $(el).find('.result__snippet').text().trim();
+
+        if (title) {
+          results.push(`• ${title}\n${snippet}`);
+        }
       });
-      
-      // Tamaño de pantalla amplio para que el cuadro de IA entre perfectamente
-      await page.setViewport({ width: 1366, height: 800 });
 
-      // kl=pe-es (Forzamos la región a Perú) | kae=d (Tema oscuro)
-      const searchUrl = `https://duckduckgo.com/?q=${encodeURIComponent(query)}&kl=pe-es&kae=d`;
-      
-      await page.goto(searchUrl, { waitUntil: 'networkidle2' });
+      if (!results.length) {
+        return sock.sendMessage(remoteJid, {
+          text: '❌ No encontré resultados.'
+        }, { quoted: msg });
+      }
 
-      // 🔥 LIMPIEZA EXTREMA Y AUTO-CLICK EN LA IA
-      await page.evaluate(() => {
-        // 1. Destruir cualquier rastro de Anuncios (Ads)
-        const ads = document.querySelectorAll('[data-testid*="ad"], .js-ads-wrap, .result--ad');
-        ads.forEach(ad => ad.remove());
+      const searchText = results.join('\n\n');
 
-        // 2. Destruir popups flotantes (como la caja blanca de "Free")
-        const allDivs = document.querySelectorAll('div');
-        for (let div of allDivs) {
-          const text = div.innerText || '';
-          if (text.includes('Upgrade to our browser') || text === 'Free' || text.includes('Try the DuckDuckGo')) {
-            let parent = div;
-            // Buscamos el contenedor que flota y lo borramos completo
-            while (parent && parent.tagName !== 'BODY') {
-              if (window.getComputedStyle(parent).position === 'fixed' || window.getComputedStyle(parent).position === 'absolute') {
-                parent.remove();
-                break;
+      if (!process.env.GROQ_API_KEY) {
+        return sock.sendMessage(remoteJid, {
+          text:
+`🔎 *${query}*
+
+${searchText}`
+        }, { quoted: msg });
+      }
+
+      const groq = await fetch(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${process.env.GROQ_API_KEY}`
+          },
+          body: JSON.stringify({
+            model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
+            temperature: 0.3,
+            max_tokens: 500,
+            messages: [
+              {
+                role: 'system',
+                content:
+                  'Resume los resultados de búsqueda de forma clara y útil.'
+              },
+              {
+                role: 'user',
+                content:
+                  `Consulta: ${query}\n\nResultados:\n${searchText}`
               }
-              parent = parent.parentElement;
-            }
-          }
+            ]
+          })
         }
+      );
 
-        // 3. AUTO-CLICK en el botón de la Inteligencia Artificial
-        const buttons = Array.from(document.querySelectorAll('button'));
-        const assistBtn = buttons.find(b => b.innerText && b.innerText.includes('Search Assist'));
-        if (assistBtn) {
-          assistBtn.click();
-        }
-      });
+      const json = await groq.json();
 
-      // ⏳ Le damos 8 segundos al bot. 
-      // Este tiempo es crucial para que la IA de DuckDuckGo termine de "tipear" su respuesta antes de la foto.
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      const answer =
+        json?.choices?.[0]?.message?.content ||
+        searchText;
 
-      const screenshotBuffer = await page.screenshot({ 
-        type: 'jpeg', 
-        quality: 85, // Subimos un pelín la calidad para leer mejor a la IA
-        fullPage: false 
-      });
+      return sock.sendMessage(remoteJid, {
+        text:
+`🔎 *${query}*
 
-      await browser.close();
-
-      await sock.sendMessage(remoteJid, {
-        image: screenshotBuffer,
-        caption: `🔍 *Búsqueda:* ${query}\n🤖 *Asistente IA Activado*\n👤 *Pedido por:* @${sender.split('@')[0]}`,
-        mentions: [sender]
+${answer}`
       }, { quoted: msg });
 
-    } catch (err) {
-      console.log('❌ Error en google.js:', err?.message || err);
+    } catch (e) {
+      console.log('Google error:', e);
 
-      await sock.sendMessage(remoteJid, {
-        text: '❌ Hubo un error al tomar la captura. Inténtalo de nuevo.'
+      return sock.sendMessage(remoteJid, {
+        text: '❌ Error al buscar.'
       }, { quoted: msg });
-
-    } finally {
-      processingChats.delete(remoteJid);
     }
   }
 };
