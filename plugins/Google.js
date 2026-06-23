@@ -10,21 +10,23 @@ module.exports = {
     try {
       if (!args.length) {
         return sock.sendMessage(remoteJid, {
-          text: '❌ Escribe algo para buscar.\n\nEjemplo:\n.google resultado del mundial'
+          text: '❌ Escribe algo para buscar.'
         }, { quoted: msg });
       }
 
       const query = args.join(' ');
 
       await sock.sendMessage(remoteJid, {
-        text: '🔍 Buscando en Internet...'
+        text: '🔍 Buscando...'
       }, { quoted: msg });
 
-      const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+      const url =
+        `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
 
       const { data } = await axios.get(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0'
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
         },
         timeout: 15000
       });
@@ -34,13 +36,28 @@ module.exports = {
       const results = [];
 
       $('.result').each((i, el) => {
-        if (i >= 5) return false;
+        if (i >= 8) return false;
 
-        const title = $(el).find('.result__title').text().trim();
-        const snippet = $(el).find('.result__snippet').text().trim();
+        const title = $(el)
+          .find('.result__title')
+          .text()
+          .trim();
+
+        const snippet = $(el)
+          .find('.result__snippet')
+          .text()
+          .trim();
+
+        const link = $(el)
+          .find('a.result__a')
+          .attr('href');
 
         if (title) {
-          results.push(`• ${title}\n${snippet}`);
+          results.push({
+            title,
+            snippet,
+            link
+          });
         }
       });
 
@@ -50,18 +67,22 @@ module.exports = {
         }, { quoted: msg });
       }
 
-      const searchText = results.join('\n\n');
+      const rawResults = results
+        .map((r, i) =>
+          `${i + 1}. ${r.title}\n${r.snippet}\n${r.link || ''}`
+        )
+        .join('\n\n');
 
       if (!process.env.GROQ_API_KEY) {
         return sock.sendMessage(remoteJid, {
           text:
 `🔎 *${query}*
 
-${searchText}`
+${rawResults}`
         }, { quoted: msg });
       }
 
-      const groq = await fetch(
+      const response = await fetch(
         'https://api.groq.com/openai/v1/chat/completions',
         {
           method: 'POST',
@@ -70,30 +91,43 @@ ${searchText}`
             Authorization: `Bearer ${process.env.GROQ_API_KEY}`
           },
           body: JSON.stringify({
-            model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-            temperature: 0.3,
-            max_tokens: 500,
+            model:
+              process.env.GROQ_MODEL ||
+              'llama-3.3-70b-versatile',
+            temperature: 0.2,
+            max_tokens: 600,
             messages: [
               {
                 role: 'system',
                 content:
-                  'Resume los resultados de búsqueda de forma clara y útil.'
+`Eres un buscador web.
+
+Responde usando únicamente la información encontrada.
+
+Si la consulta pide resultados deportivos, noticias o datos actuales y los resultados no contienen la respuesta exacta, dilo claramente.
+
+No inventes información.`
               },
               {
                 role: 'user',
                 content:
-                  `Consulta: ${query}\n\nResultados:\n${searchText}`
+`Consulta:
+${query}
+
+Resultados encontrados:
+
+${rawResults}`
               }
             ]
           })
         }
       );
 
-      const json = await groq.json();
+      const json = await response.json();
 
       const answer =
         json?.choices?.[0]?.message?.content ||
-        searchText;
+        rawResults;
 
       return sock.sendMessage(remoteJid, {
         text:
@@ -102,8 +136,8 @@ ${searchText}`
 ${answer}`
       }, { quoted: msg });
 
-    } catch (e) {
-      console.log('Google error:', e);
+    } catch (err) {
+      console.log('Google error:', err);
 
       return sock.sendMessage(remoteJid, {
         text: '❌ Error al buscar.'
