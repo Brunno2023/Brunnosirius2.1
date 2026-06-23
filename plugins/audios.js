@@ -76,7 +76,7 @@ module.exports = {
       { triggers: ['monte','everest','yo puedo'], file: 'monte.mp3' },
       { triggers: ['porro','droga','toalla'], file: 'porro1.mp3' },
       { triggers: ['palo','pegar','pegas'], file: 'palo.mp3' },
-      { triggers: ['Inutil','Tonto','boludo','imbecil','mrda','Mrda'], file: 'inutil.mp3' },
+      { triggers: ['Inutil','Tonto','boludo','imbecil','Bot de mrda','Mrda'], file: 'inutil.mp3' },
       { triggers: ['doxean', 'me doxean'], file: 'Me doxean.mp3' },
       { triggers: ['no es jueves'], file: 'No es jueves.mp3' },
       { triggers: ['machista'], file: 'm4chista.mp3' },
